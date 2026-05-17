@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Poppins:wght@600&display=swap');
+
+:root {
+  /* Colors */
+  --primary: #6D1D36;
+  --primary-hover: #500421;
+  --secondary: #E25D7A;
+  --secondary-hover: #fe7390;
+  --warning: #FFC857;
+  --success: #43B98A;
+  
+  --surface: #FFFFFF;
+  --background: #FFF8F7;
+  
+  --on-surface: #22191b;
+  --on-surface-variant: #544245;
+  --on-primary: #FFFFFF;
+  --on-secondary: #FFFFFF;
+
+  --border-light: #dac0c4;
+  --shadow-soft: 0px 4px 20px rgba(109, 29, 54, 0.05);
+
+  /* Typography */
+  --font-heading: 'Poppins', sans-serif;
+  --font-body: 'Open Sans', sans-serif;
+
+  /* Shapes */
+  --radius-card: 16px;
+  --radius-button: 12px;
+  --radius-chip: 9999px;
+
+  /* Spacing */
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--background);
+  color: var(--on-surface);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--primary);
+  line-height: 1.3;
+  margin-bottom: var(--space-md);
+}
+
+a {
+  color: var(--secondary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Utilities */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  padding: var(--space-xl);
+  overflow-y: auto;
+}
