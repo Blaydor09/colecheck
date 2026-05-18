@@ -47,7 +47,16 @@ export const Estudiantes: React.FC = () => {
           <tbody>
             {students.map(student => (
               <tr key={student.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                <td style={{ padding: '16px 24px', fontWeight: 600 }}>{student.name}</td>
+                <td style={{ padding: '16px 24px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {student.faceImage ? (
+                    <img src={student.faceImage} alt={student.name} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--surface-container-high)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-surface-variant)', fontSize: '14px' }}>
+                      {student.name.charAt(0)}
+                    </div>
+                  )}
+                  {student.name}
+                </td>
                 <td style={{ padding: '16px 24px', color: 'var(--on-surface-variant)' }}>{student.id}</td>
                 <td style={{ padding: '16px 24px' }}>{student.grade}</td>
                 <td style={{ padding: '16px 24px' }}>

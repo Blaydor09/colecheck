@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './Button';
 import { Card } from './Card';
-import { X } from 'lucide-react';
+import { X, Camera, Upload } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 interface AddStudentModalProps {
@@ -21,10 +21,81 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose }) => 
   const [parentEmail, setParentEmail] = useState('');
   const [parentPhone, setParentPhone] = useState('');
 
+  // Face image state
+  const [faceImage, setFaceImage] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  const startCamera = async () => {
+    try {
+      setImageError(null);
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+        setIsCameraActive(true);
+      }
+    } catch (err) {
+      setImageError('No se pudo acceder a la cámara. Verifique los permisos.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      setIsCameraActive(false);
+    }
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const context = canvasRef.current.getContext('2d');
+      if (context) {
+        canvasRef.current.width = videoRef.current.videoWidth;
+        canvasRef.current.height = videoRef.current.videoHeight;
+        context.drawImage(videoRef.current, 0, 0);
+        const imageDataUrl = canvasRef.current.toDataURL('image/jpeg');
+        setFaceImage(imageDataUrl);
+        stopCamera();
+      }
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImageError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      setImageError('Solo se permiten imágenes JPG o PNG.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setImageError('La imagen no debe superar los 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFaceImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     addStudent(
-      { name: studentName, grade: studentGrade },
+      { name: studentName, grade: studentGrade, faceImage: faceImage || undefined },
       { name: parentName, dni: parentDni, email: parentEmail, phone: parentPhone }
     );
     onClose();
@@ -75,6 +146,57 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose }) => 
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-light)' }} 
                   placeholder="Ej. 3ro Secundaria"
                 />
+              </div>
+            </div>
+
+            {/* Captura de Imagen */}
+            <div style={{ marginTop: 'var(--space-md)' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--on-surface-variant)' }}>Fotografía (Reconocimiento Facial)</label>
+              
+              <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {!isCameraActive ? (
+                    <Button type="button" variant="secondary" onClick={startCamera} style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                      <Camera size={18} /> Tomar Foto con Cámara
+                    </Button>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <video ref={videoRef} style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border-light)', backgroundColor: '#000' }} autoPlay playsInline muted />
+                      <canvas ref={canvasRef} style={{ display: 'none' }} />
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <Button type="button" variant="primary" onClick={capturePhoto} style={{ flex: 1 }}>Capturar</Button>
+                        <Button type="button" variant="secondary" onClick={stopCamera}>Cancelar</Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ textAlign: 'center', color: 'var(--on-surface-variant)', fontSize: '12px', margin: '4px 0' }}>O</div>
+
+                  <label style={{ 
+                    display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', 
+                    padding: '8px 16px', borderRadius: '6px', border: '1px solid var(--border-light)', 
+                    cursor: 'pointer', backgroundColor: 'var(--surface-container)', color: 'var(--on-surface)' 
+                  }}>
+                    <Upload size={18} /> Subir Imagen (JPG/PNG, Max 5MB)
+                    <input type="file" accept="image/jpeg, image/png" style={{ display: 'none' }} onChange={handleFileUpload} />
+                  </label>
+
+                  {imageError && <div style={{ color: 'var(--danger)', fontSize: '12px', marginTop: '4px' }}>{imageError}</div>}
+                </div>
+
+                {/* Previsualización */}
+                <div style={{ 
+                  width: '120px', height: '120px', borderRadius: '8px', 
+                  border: '1px dashed var(--border-light)', display: 'flex', 
+                  alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--surface-container-high)',
+                  overflow: 'hidden'
+                }}>
+                  {faceImage ? (
+                    <img src={faceImage} alt="Vista previa" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontSize: '12px', color: 'var(--on-surface-variant)', textAlign: 'center', padding: '8px' }}>Sin foto</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>

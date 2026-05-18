@@ -16,6 +16,7 @@ export interface Student {
   name: string;
   grade: string;
   parent?: Parent;
+  faceImage?: string;
 }
 
 export interface Teacher {

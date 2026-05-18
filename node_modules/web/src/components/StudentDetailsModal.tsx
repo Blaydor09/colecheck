@@ -36,14 +36,24 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({ studen
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
           {/* Estudiante Info */}
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-            <div style={{ 
-              width: '60px', height: '60px', 
-              borderRadius: '50%', backgroundColor: 'rgba(109, 29, 54, 0.1)', 
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--primary)'
-            }}>
-              <GraduationCap size={32} />
-            </div>
+            {currentStudent.faceImage ? (
+              <div style={{ 
+                width: '60px', height: '60px', 
+                borderRadius: '50%', overflow: 'hidden',
+                border: '2px solid var(--primary)'
+              }}>
+                <img src={currentStudent.faceImage} alt={currentStudent.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            ) : (
+              <div style={{ 
+                width: '60px', height: '60px', 
+                borderRadius: '50%', backgroundColor: 'rgba(109, 29, 54, 0.1)', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--primary)'
+              }}>
+                <GraduationCap size={32} />
+              </div>
+            )}
             <div>
               <h3 style={{ margin: 0, fontSize: '18px' }}>{currentStudent.name}</h3>
               <p style={{ margin: 0, color: 'var(--on-surface-variant)' }}>ID: {currentStudent.id} • {currentStudent.grade}</p>
