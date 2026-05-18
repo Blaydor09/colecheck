@@ -1,0 +1,32 @@
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-chip);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.chip-success {
+  background-color: rgba(67, 185, 138, 0.15);
+  color: #2b7a5a; /* Darker green for contrast */
+}
+
+.chip-error {
+  background-color: rgba(226, 93, 122, 0.15); /* Using secondary (soft rose) as error base or explicit red */
+  color: var(--secondary);
+}
+
+.chip-warning {
+  background-color: rgba(255, 200, 87, 0.2);
+  color: #a87e00; /* Darker yellow for contrast */
+}
+
+.chip-pending {
+  background-color: var(--border-light);
+  color: var(--on-surface-variant);
+}

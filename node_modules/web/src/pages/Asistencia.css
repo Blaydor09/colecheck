@@ -1,0 +1,120 @@
+.asistencia-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.checklist-container {
+  padding: 0;
+  overflow: hidden;
+}
+
+.search-bar {
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: var(--surface);
+}
+
+.search-bar input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--on-surface);
+  background: transparent;
+}
+
+.search-bar input::placeholder {
+  color: var(--on-surface-variant);
+  opacity: 0.7;
+}
+
+.checklist-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.checklist-table th, .checklist-table td {
+  padding: 16px 24px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.checklist-table th {
+  background-color: rgba(109, 29, 54, 0.02);
+  color: var(--on-surface-variant);
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.checklist-table tbody tr:hover {
+  background-color: rgba(109, 29, 54, 0.01);
+}
+
+.student-name {
+  font-weight: 600;
+  color: var(--on-surface);
+}
+
+.student-id {
+  font-size: 13px;
+  color: var(--on-surface-variant);
+}
+
+.log-time {
+  font-size: 12px;
+  color: var(--on-surface-variant);
+  margin-top: 4px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background-color: transparent;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--on-surface-variant);
+}
+
+.action-btn:hover {
+  background-color: rgba(0,0,0,0.03);
+}
+
+.action-btn.success.active {
+  background-color: rgba(67, 185, 138, 0.15);
+  color: #2b7a5a;
+  border-color: rgba(67, 185, 138, 0.3);
+}
+
+.action-btn.warning.active {
+  background-color: rgba(255, 200, 87, 0.2);
+  color: #a87e00;
+  border-color: rgba(255, 200, 87, 0.4);
+}
+
+.action-btn.error.active {
+  background-color: rgba(226, 93, 122, 0.15);
+  color: var(--secondary);
+  border-color: rgba(226, 93, 122, 0.3);
+}
+
+.no-results {
+  text-align: center;
+  color: var(--on-surface-variant);
+  padding: 32px !important;
+}
