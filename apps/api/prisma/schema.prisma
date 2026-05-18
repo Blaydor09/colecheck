@@ -1,0 +1,756 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model absence_justifications {
+  id                       String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id                String               @db.Uuid
+  student_id               String               @db.Uuid
+  attendance_record_id     String?              @db.Uuid
+  submitted_by_guardian_id String?              @db.Uuid
+  reason                   String
+  evidence_url             String?
+  status                   justification_status @default(pending)
+  reviewed_by              String?              @db.Uuid
+  reviewed_at              DateTime?            @db.Timestamptz(6)
+  review_note              String?
+  created_at               DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime             @default(now()) @db.Timestamptz(6)
+  attendance_records       attendance_records?  @relation(fields: [attendance_record_id], references: [id], onUpdate: NoAction)
+  users                    users?               @relation(fields: [reviewed_by], references: [id], onUpdate: NoAction)
+  schools                  schools              @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  students                 students             @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  guardians                guardians?           @relation(fields: [submitted_by_guardian_id], references: [id], onUpdate: NoAction)
+
+  @@index([school_id, status, created_at(sort: Desc)], map: "absence_justifications_school_status_idx")
+  @@index([student_id, created_at(sort: Desc)], map: "absence_justifications_student_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model academic_years {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id           String                @db.Uuid
+  name                String
+  starts_on           DateTime              @db.Date
+  ends_on             DateTime              @db.Date
+  is_active           Boolean               @default(false)
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  schools             schools               @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  class_sections      class_sections[]
+  student_enrollments student_enrollments[]
+
+  @@unique([school_id, name])
+}
+
+model access_locations {
+  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id         String               @db.Uuid
+  name              String
+  kind              access_location_kind @default(gate)
+  description       String?
+  is_active         Boolean              @default(true)
+  created_at        DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime             @default(now()) @db.Timestamptz(6)
+  schools           schools              @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  attendance_events attendance_events[]
+  devices           devices[]
+  incidents         incidents[]
+
+  @@unique([school_id, name])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model attendance_events {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id             String                  @db.Uuid
+  attendance_record_id  String?                 @db.Uuid
+  student_id            String?                 @db.Uuid
+  event_time            DateTime                @default(now()) @db.Timestamptz(6)
+  direction             attendance_direction    @default(entry)
+  method                attendance_method
+  result                attendance_event_result @default(accepted)
+  status_after          attendance_status?
+  location_id           String?                 @db.Uuid
+  device_id             String?                 @db.Uuid
+  recorded_by           String?                 @db.Uuid
+  scanned_token_hash    String?
+  biometric_match_score Decimal?                @db.Decimal(5, 2)
+  failure_reason        String?
+  notes                 String?
+  metadata              Json                    @default("{}")
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  attendance_records    attendance_records?     @relation(fields: [attendance_record_id], references: [id], onUpdate: NoAction)
+  devices               devices?                @relation(fields: [device_id], references: [id], onUpdate: NoAction)
+  access_locations      access_locations?       @relation(fields: [location_id], references: [id], onUpdate: NoAction)
+  users                 users?                  @relation(fields: [recorded_by], references: [id], onUpdate: NoAction)
+  schools               schools                 @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  students              students?               @relation(fields: [student_id], references: [id], onUpdate: NoAction)
+  incidents             incidents[]
+
+  @@index([device_id, event_time(sort: Desc)], map: "attendance_events_device_time_idx")
+  @@index([attendance_record_id], map: "attendance_events_record_idx")
+  @@index([school_id, event_time(sort: Desc)], map: "attendance_events_school_time_idx")
+  @@index([student_id, event_time(sort: Desc)], map: "attendance_events_student_time_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model attendance_policies {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id        String          @db.Uuid
+  section_id       String?         @db.Uuid
+  name             String          @default("Default policy")
+  days_of_week     Int[]           @default([1, 2, 3, 4, 5]) @db.SmallInt
+  entry_starts_at  DateTime        @default(dbgenerated("'06:30:00'::time without time zone")) @db.Time(6)
+  late_after       DateTime        @default(dbgenerated("'08:00:00'::time without time zone")) @db.Time(6)
+  absence_after    DateTime        @default(dbgenerated("'09:00:00'::time without time zone")) @db.Time(6)
+  exit_starts_at   DateTime?       @db.Time(6)
+  exit_ends_at     DateTime?       @db.Time(6)
+  notify_guardians Boolean         @default(true)
+  metadata         Json            @default("{}")
+  created_at       DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime        @default(now()) @db.Timestamptz(6)
+  schools          schools         @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  class_sections   class_sections? @relation(fields: [section_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model attendance_records {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id              String                   @db.Uuid
+  student_id             String                   @db.Uuid
+  class_section_id       String?                  @db.Uuid
+  attendance_date        DateTime                 @db.Date
+  status                 attendance_status        @default(pending)
+  first_entry_at         DateTime?                @db.Timestamptz(6)
+  last_exit_at           DateTime?                @db.Timestamptz(6)
+  source                 attendance_method        @default(system)
+  marked_by              String?                  @db.Uuid
+  notes                  String?
+  metadata               Json                     @default("{}")
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  absence_justifications absence_justifications[]
+  attendance_events      attendance_events[]
+  class_sections         class_sections?          @relation(fields: [class_section_id], references: [id], onUpdate: NoAction)
+  users                  users?                   @relation(fields: [marked_by], references: [id], onUpdate: NoAction)
+  schools                schools                  @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  students               students                 @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  notifications          notifications[]
+
+  @@unique([student_id, attendance_date])
+  @@index([school_id, attendance_date], map: "attendance_records_school_date_idx")
+  @@index([school_id, attendance_date, status], map: "attendance_records_school_status_idx")
+  @@index([class_section_id, attendance_date], map: "attendance_records_section_date_idx")
+  @@index([student_id, attendance_date(sort: Desc)], map: "attendance_records_student_date_idx")
+}
+
+model audit_logs {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id     String?  @db.Uuid
+  actor_user_id String?  @db.Uuid
+  action        String
+  entity_type   String
+  entity_id     String?  @db.Uuid
+  metadata      Json     @default("{}")
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  users         users?   @relation(fields: [actor_user_id], references: [id], onUpdate: NoAction)
+  schools       schools? @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([actor_user_id, created_at(sort: Desc)], map: "audit_logs_actor_time_idx")
+  @@index([school_id, created_at(sort: Desc)], map: "audit_logs_school_time_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model biometric_profiles {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id     String           @db.Uuid
+  student_id    String           @db.Uuid
+  provider      String
+  template_ref  String
+  template_hash String?
+  quality_score Decimal?         @db.Decimal(5, 2)
+  status        biometric_status @default(active)
+  enrolled_by   String?          @db.Uuid
+  enrolled_at   DateTime         @default(now()) @db.Timestamptz(6)
+  revoked_at    DateTime?        @db.Timestamptz(6)
+  metadata      Json             @default("{}")
+  created_at    DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime         @default(now()) @db.Timestamptz(6)
+  users         users?           @relation(fields: [enrolled_by], references: [id], onUpdate: NoAction)
+  schools       schools          @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  students      students         @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([student_id, provider, template_ref])
+  @@index([student_id, status], map: "biometric_profiles_student_status_idx")
+}
+
+model class_sections {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id           String                @db.Uuid
+  academic_year_id    String                @db.Uuid
+  grade_level_id      String                @db.Uuid
+  name                String                @default("A")
+  display_name        String
+  homeroom_teacher_id String?               @db.Uuid
+  room                String?
+  is_active           Boolean               @default(true)
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  attendance_policies attendance_policies[]
+  attendance_records  attendance_records[]
+  academic_years      academic_years        @relation(fields: [academic_year_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  grade_levels        grade_levels          @relation(fields: [grade_level_id], references: [id], onUpdate: NoAction)
+  staff_members       staff_members?        @relation(fields: [homeroom_teacher_id], references: [id], onUpdate: NoAction)
+  schools             schools               @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  student_enrollments student_enrollments[]
+  students            students[]
+
+  @@unique([school_id, academic_year_id, grade_level_id, name])
+  @@index([school_id, academic_year_id, is_active], map: "class_sections_school_year_idx")
+}
+
+model devices {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id         String              @db.Uuid
+  location_id       String?             @db.Uuid
+  assigned_staff_id String?             @db.Uuid
+  name              String
+  type              device_type
+  identifier        String
+  status            device_status       @default(active)
+  last_seen_at      DateTime?           @db.Timestamptz(6)
+  metadata          Json                @default("{}")
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  attendance_events attendance_events[]
+  staff_members     staff_members?      @relation(fields: [assigned_staff_id], references: [id], onUpdate: NoAction)
+  access_locations  access_locations?   @relation(fields: [location_id], references: [id], onUpdate: NoAction)
+  schools           schools             @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  incidents         incidents[]
+
+  @@unique([school_id, identifier])
+  @@index([location_id], map: "devices_location_idx")
+  @@index([school_id, status], map: "devices_school_status_idx")
+}
+
+model grade_levels {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id      String           @db.Uuid
+  code           String
+  name           String
+  stage          String
+  sort_order     Int              @default(0)
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime         @default(now()) @db.Timestamptz(6)
+  class_sections class_sections[]
+  schools        schools          @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([school_id, code])
+}
+
+model guardians {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id              String                   @db.Uuid
+  user_id                String?                  @unique @db.Uuid
+  full_name              String
+  document_number        String
+  email                  String?                  @db.Citext
+  phone                  String?
+  app_access_enabled     Boolean                  @default(false)
+  notification_enabled   Boolean                  @default(true)
+  metadata               Json                     @default("{}")
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  absence_justifications absence_justifications[]
+  schools                schools                  @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                  users?                   @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  student_guardians      student_guardians[]
+
+  @@unique([school_id, document_number])
+  @@index([school_id, full_name], map: "guardians_school_name_idx")
+}
+
+model incidents {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id           String             @db.Uuid
+  student_id          String?            @db.Uuid
+  attendance_event_id String?            @db.Uuid
+  device_id           String?            @db.Uuid
+  location_id         String?            @db.Uuid
+  type                incident_type      @default(other)
+  severity            incident_severity  @default(medium)
+  status              incident_status    @default(active)
+  title               String
+  description         String
+  occurred_at         DateTime           @default(now()) @db.Timestamptz(6)
+  resolved_at         DateTime?          @db.Timestamptz(6)
+  resolved_by         String?            @db.Uuid
+  resolution_note     String?
+  metadata            Json               @default("{}")
+  created_at          DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime           @default(now()) @db.Timestamptz(6)
+  attendance_events   attendance_events? @relation(fields: [attendance_event_id], references: [id], onUpdate: NoAction)
+  devices             devices?           @relation(fields: [device_id], references: [id], onUpdate: NoAction)
+  access_locations    access_locations?  @relation(fields: [location_id], references: [id], onUpdate: NoAction)
+  users               users?             @relation(fields: [resolved_by], references: [id], onUpdate: NoAction)
+  schools             schools            @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  students            students?          @relation(fields: [student_id], references: [id], onUpdate: NoAction)
+  notifications       notifications[]
+
+  @@index([school_id, status, occurred_at(sort: Desc)], map: "incidents_school_status_idx")
+  @@index([student_id, occurred_at(sort: Desc)], map: "incidents_student_idx")
+}
+
+model notification_preferences {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id        String               @db.Uuid
+  user_id          String               @db.Uuid
+  type             notification_type
+  channel          notification_channel
+  enabled          Boolean              @default(true)
+  quiet_hours_from DateTime?            @db.Time(6)
+  quiet_hours_to   DateTime?            @db.Time(6)
+  created_at       DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime             @default(now()) @db.Timestamptz(6)
+  schools          schools              @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users                @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, type, channel])
+  @@index([school_id, user_id], map: "notification_preferences_school_user_idx")
+}
+
+model notifications {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id            String               @db.Uuid
+  recipient_user_id    String?              @db.Uuid
+  student_id           String?              @db.Uuid
+  attendance_record_id String?              @db.Uuid
+  incident_id          String?              @db.Uuid
+  type                 notification_type
+  channel              notification_channel
+  status               notification_status  @default(queued)
+  title                String
+  body                 String
+  scheduled_for        DateTime             @default(now()) @db.Timestamptz(6)
+  sent_at              DateTime?            @db.Timestamptz(6)
+  delivered_at         DateTime?            @db.Timestamptz(6)
+  read_at              DateTime?            @db.Timestamptz(6)
+  delivery_attempts    Int                  @default(0)
+  failure_reason       String?
+  metadata             Json                 @default("{}")
+  created_at           DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime             @default(now()) @db.Timestamptz(6)
+  attendance_records   attendance_records?  @relation(fields: [attendance_record_id], references: [id], onUpdate: NoAction)
+  incidents            incidents?           @relation(fields: [incident_id], references: [id], onUpdate: NoAction)
+  users                users?               @relation(fields: [recipient_user_id], references: [id], onUpdate: NoAction)
+  schools              schools              @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  students             students?            @relation(fields: [student_id], references: [id], onUpdate: NoAction)
+
+  @@index([recipient_user_id, status, created_at(sort: Desc)], map: "notifications_recipient_status_idx")
+  @@index([school_id, status, scheduled_for], map: "notifications_school_status_idx")
+  @@index([student_id, created_at(sort: Desc)], map: "notifications_student_idx")
+}
+
+model push_device_tokens {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String    @db.Uuid
+  platform     String
+  token_hash   String
+  device_name  String?
+  last_seen_at DateTime? @db.Timestamptz(6)
+  revoked_at   DateTime? @db.Timestamptz(6)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @default(now()) @db.Timestamptz(6)
+  users        users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, token_hash])
+  @@index([user_id, revoked_at], map: "push_device_tokens_user_active_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model school_settings {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id  String   @db.Uuid
+  key        String
+  value      Json     @default("{}")
+  updated_by String?  @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  schools    schools  @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users?   @relation(fields: [updated_by], references: [id], onUpdate: NoAction)
+
+  @@unique([school_id, key])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model schools {
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                     String
+  slug                     String                     @unique @db.Citext
+  legal_name               String?
+  document_number          String?
+  timezone                 String                     @default("America/La_Paz")
+  country_code             String                     @default("BO") @db.Char(2)
+  email                    String?                    @db.Citext
+  phone                    String?
+  address                  String?
+  logo_url                 String?
+  status                   school_status              @default(active)
+  settings                 Json                       @default("{}")
+  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  absence_justifications   absence_justifications[]
+  academic_years           academic_years[]
+  access_locations         access_locations[]
+  attendance_events        attendance_events[]
+  attendance_policies      attendance_policies[]
+  attendance_records       attendance_records[]
+  audit_logs               audit_logs[]
+  biometric_profiles       biometric_profiles[]
+  class_sections           class_sections[]
+  devices                  devices[]
+  grade_levels             grade_levels[]
+  guardians                guardians[]
+  incidents                incidents[]
+  notification_preferences notification_preferences[]
+  notifications            notifications[]
+  school_settings          school_settings[]
+  staff_members            staff_members[]
+  student_qr_credentials   student_qr_credentials[]
+  students                 students[]
+  user_roles               user_roles[]
+  users                    users[]
+}
+
+model staff_members {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id          String           @db.Uuid
+  user_id            String?          @unique @db.Uuid
+  employee_code      String?
+  full_name          String
+  email              String?          @db.Citext
+  phone              String?
+  kind               staff_kind       @default(teacher)
+  status             staff_status     @default(active)
+  app_access_enabled Boolean          @default(false)
+  metadata           Json             @default("{}")
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime         @default(now()) @db.Timestamptz(6)
+  class_sections     class_sections[]
+  devices            devices[]
+  schools            schools          @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users              users?           @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([school_id, kind, status], map: "staff_school_kind_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model student_enrollments {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  student_id       String            @db.Uuid
+  academic_year_id String            @db.Uuid
+  class_section_id String            @db.Uuid
+  status           enrollment_status @default(active)
+  enrolled_on      DateTime          @default(dbgenerated("CURRENT_DATE")) @db.Date
+  withdrawn_on     DateTime?         @db.Date
+  created_at       DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime          @default(now()) @db.Timestamptz(6)
+  academic_years   academic_years    @relation(fields: [academic_year_id], references: [id], onUpdate: NoAction)
+  class_sections   class_sections    @relation(fields: [class_section_id], references: [id], onUpdate: NoAction)
+  students         students          @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([student_id, academic_year_id])
+  @@index([class_section_id, status], map: "student_enrollments_section_idx")
+}
+
+model student_guardians {
+  student_id              String                @db.Uuid
+  guardian_id             String                @db.Uuid
+  relationship            guardian_relationship @default(tutor)
+  is_primary              Boolean               @default(false)
+  can_pick_up             Boolean               @default(true)
+  receives_notifications  Boolean               @default(true)
+  emergency_contact_order Int?
+  created_at              DateTime              @default(now()) @db.Timestamptz(6)
+  guardians               guardians             @relation(fields: [guardian_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  students                students              @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([student_id, guardian_id])
+  @@index([guardian_id], map: "student_guardians_guardian_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model student_qr_credentials {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id   String    @db.Uuid
+  student_id  String    @db.Uuid
+  token_hash  String    @unique
+  label       String?
+  valid_from  DateTime  @default(now()) @db.Timestamptz(6)
+  valid_until DateTime? @db.Timestamptz(6)
+  revoked_at  DateTime? @db.Timestamptz(6)
+  created_by  String?   @db.Uuid
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @default(now()) @db.Timestamptz(6)
+  users       users?    @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  schools     schools   @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  students    students  @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([student_id, revoked_at], map: "student_qr_credentials_student_idx")
+}
+
+model students {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id              String                   @db.Uuid
+  current_section_id     String?                  @db.Uuid
+  student_code           String
+  document_number        String?
+  full_name              String
+  preferred_name         String?
+  birth_date             DateTime?                @db.Date
+  gender                 String?
+  status                 student_status           @default(active)
+  photo_url              String?
+  enrollment_date        DateTime                 @default(dbgenerated("CURRENT_DATE")) @db.Date
+  metadata               Json                     @default("{}")
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  absence_justifications absence_justifications[]
+  attendance_events      attendance_events[]
+  attendance_records     attendance_records[]
+  biometric_profiles     biometric_profiles[]
+  incidents              incidents[]
+  notifications          notifications[]
+  student_enrollments    student_enrollments[]
+  student_guardians      student_guardians[]
+  student_qr_credentials student_qr_credentials[]
+  class_sections         class_sections?          @relation(fields: [current_section_id], references: [id], onUpdate: NoAction)
+  schools                schools                  @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([school_id, student_code])
+  @@index([school_id, full_name], map: "students_school_name_idx")
+  @@index([school_id, status], map: "students_school_status_idx")
+  @@index([current_section_id], map: "students_section_idx")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model user_roles {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  school_id  String?  @db.Uuid
+  role       app_role
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  schools    schools? @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([school_id, role], map: "user_roles_school_role_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id                String?                    @db.Uuid
+  email                    String?                    @db.Citext
+  document_number          String?
+  full_name                String
+  phone                    String?
+  avatar_url               String?
+  password_hash            String?
+  status                   user_status                @default(invited)
+  last_login_at            DateTime?                  @db.Timestamptz(6)
+  metadata                 Json                       @default("{}")
+  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  absence_justifications   absence_justifications[]
+  attendance_events        attendance_events[]
+  attendance_records       attendance_records[]
+  audit_logs               audit_logs[]
+  biometric_profiles       biometric_profiles[]
+  guardians                guardians?
+  incidents                incidents[]
+  notification_preferences notification_preferences[]
+  notifications            notifications[]
+  push_device_tokens       push_device_tokens[]
+  school_settings          school_settings[]
+  staff_members            staff_members?
+  student_qr_credentials   student_qr_credentials[]
+  user_roles               user_roles[]
+  schools                  schools?                   @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([school_id, status], map: "users_school_status_idx")
+}
+
+enum access_location_kind {
+  main_gate
+  gate
+  classroom
+  office
+  other
+}
+
+enum app_role {
+  system_admin
+  school_admin
+  director
+  teacher
+  attendance_staff
+  guardian
+}
+
+enum attendance_direction {
+  entry
+  exit
+  status_update
+}
+
+enum attendance_event_result {
+  accepted
+  rejected
+  needs_review
+  duplicate
+}
+
+enum attendance_method {
+  qr
+  facial
+  manual
+  system
+}
+
+enum attendance_status {
+  pending
+  present
+  late
+  absent
+  justified
+  excused
+}
+
+enum biometric_status {
+  active
+  revoked
+  expired
+}
+
+enum device_status {
+  active
+  inactive
+  maintenance
+  lost
+}
+
+enum device_type {
+  mobile_app
+  qr_scanner
+  facial_camera
+  tablet
+  web_panel
+}
+
+enum enrollment_status {
+  active
+  withdrawn
+  completed
+}
+
+enum guardian_relationship {
+  father
+  mother
+  tutor
+  relative
+  other
+}
+
+enum incident_severity {
+  low
+  medium
+  high
+  critical
+}
+
+enum incident_status {
+  active
+  in_review
+  resolved
+  dismissed
+}
+
+enum incident_type {
+  facial_not_recognized
+  invalid_qr
+  unidentified_visitor
+  manual_review
+  absence_without_notice
+  device_error
+  other
+}
+
+enum justification_status {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
+enum notification_channel {
+  app
+  sms
+  email
+  whatsapp
+}
+
+enum notification_status {
+  queued
+  sent
+  delivered
+  read
+  failed
+  cancelled
+}
+
+enum notification_type {
+  attendance_entry
+  attendance_exit
+  late
+  absence
+  incident
+  justification
+  system
+}
+
+enum school_status {
+  active
+  inactive
+}
+
+enum staff_kind {
+  director
+  admin
+  teacher
+  attendance_staff
+  security
+}
+
+enum staff_status {
+  active
+  inactive
+}
+
+enum student_status {
+  active
+  inactive
+  transferred
+  graduated
+}
+
+enum user_status {
+  invited
+  active
+  suspended
+  disabled
+}
