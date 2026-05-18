@@ -24,6 +24,8 @@ export interface Teacher {
   email: string;
   phone: string;
   course: string;
+  hasAppAccess?: boolean;
+  appPassword?: string;
 }
 
 export interface AttendanceLog {
@@ -55,6 +57,7 @@ interface AppContextType {
   addTeacher: (teacher: Omit<Teacher, 'id'>) => { success: boolean; error?: string };
   removeTeacher: (teacherId: string) => void;
   generateParentAccess: (studentId: string) => void;
+  generateTeacherAccess: (teacherId: string) => void;
 }
 
 const defaultStudents: Student[] = [
@@ -67,7 +70,7 @@ const defaultStudents: Student[] = [
 ];
 
 const defaultTeachers: Teacher[] = [
-  { id: 't1', name: 'Lic. Fernando Salas', email: 'fsalas@colecheck.com', phone: '+56987654321', course: '3ro Secundaria' },
+  { id: 't1', name: 'Lic. Fernando Salas', email: 'fsalas@colecheck.com', phone: '+56987654321', course: '3ro Secundaria', hasAppAccess: true, appPassword: 'PROF123' },
   { id: 't2', name: 'Prof. Carmen Ortiz', email: 'cortiz@colecheck.com', phone: '+56912345678', course: '5to Primaria' },
 ];
 
@@ -196,11 +199,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
+  const generateTeacherAccess = (teacherId: string) => {
+    const password = Math.random().toString(36).substring(2, 8).toUpperCase();
+    setTeachers(prev => prev.map(teacher => {
+      if (teacher.id === teacherId) {
+        return {
+          ...teacher,
+          hasAppAccess: true,
+          appPassword: password
+        };
+      }
+      return teacher;
+    }));
+  };
+
   return (
     <AppContext.Provider value={{ 
       students, teachers, attendanceLogs, incidents, 
       markAttendance, resolveIncident, addIncident, addStudent, 
-      addTeacher, removeTeacher, generateParentAccess
+      addTeacher, removeTeacher, generateParentAccess, generateTeacherAccess
     }}>
       {children}
     </AppContext.Provider>

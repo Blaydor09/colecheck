@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { useAppContext } from '../context/AppContext';
-import { UserPlus, Search, Trash2 } from 'lucide-react';
+import { UserPlus, Search, Trash2, User } from 'lucide-react';
 import { AddTeacherModal } from '../components/AddTeacherModal';
+import { TeacherDetailsModal } from '../components/TeacherDetailsModal';
+import type { Teacher } from '../context/AppContext';
 
 export const Maestros: React.FC = () => {
   const { teachers, removeTeacher } = useAppContext();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
@@ -68,7 +71,15 @@ export const Maestros: React.FC = () => {
                     {teacher.email}<br />
                     <span style={{ fontSize: '13px' }}>{teacher.phone}</span>
                   </td>
-                  <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                  <td style={{ padding: '16px 24px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    <Button 
+                      variant="ghost" 
+                      style={{ padding: '6px', color: 'var(--primary)', marginRight: '8px' }}
+                      onClick={() => setSelectedTeacher(teacher)}
+                      title="Ver Detalles y Acceso"
+                    >
+                      <User size={18} />
+                    </Button>
                     <Button 
                       variant="ghost" 
                       style={{ padding: '6px', color: 'rgb(239, 68, 68)' }}
@@ -91,6 +102,9 @@ export const Maestros: React.FC = () => {
 
       {isAddModalOpen && (
         <AddTeacherModal onClose={() => setIsAddModalOpen(false)} />
+      )}
+      {selectedTeacher && (
+        <TeacherDetailsModal teacher={selectedTeacher} onClose={() => setSelectedTeacher(null)} />
       )}
     </div>
   );

@@ -73,9 +73,14 @@ La app móvil permite simular tanto la vista del Padre como la del Guardia desde
    flutter run
    ```
 4. **Flujo de Prueba en la App:**
-   - La app abrirá la pantalla de Login.
-   - Presiona **"Entrar como Padre/Apoderado"** para ver el panel de inicio con notificaciones y el perfil del alumno.
-   - Presiona **"Entrar como Personal (Escáner)"** para abrir la cámara, escanear códigos QR, y acceder al directorio de "Registro Manual" para justificaciones en sitio.
+   - La app abrirá la pantalla de Login con un formulario único.
+   - El sistema detectará automáticamente tu rol según las siguientes credenciales estáticas de prueba:
+     - **Acceso Padre/Apoderado:**
+       - **Usuario/Correo:** `carlos@ejemplo.com`
+       - **Contraseña:** `APP123`
+     - **Acceso Personal/Escáner:**
+       - **Usuario/Correo:** `fsalas@colecheck.com`
+       - **Contraseña:** `PROF123`
 
 ---
 

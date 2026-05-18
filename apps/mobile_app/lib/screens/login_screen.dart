@@ -1,10 +1,40 @@
 import 'package:flutter/material.dart';
 import '../widgets/primary_button.dart';
 import 'parent_dashboard.dart';
-import 'staff/scanner_screen.dart';
+import 'teacher_dashboard.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  void _handleLogin() {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email == 'carlos@ejemplo.com' && password == 'APP123') {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const ParentDashboard()),
+      );
+    } else if (email == 'fsalas@colecheck.com' && password == 'PROF123') {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const TeacherDashboard()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Credenciales incorrectas. Ver el README para los usuarios de prueba.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +57,7 @@ class LoginScreen extends StatelessWidget {
               ),
               const SizedBox(height: 48),
               TextField(
+                controller: _emailController,
                 decoration: InputDecoration(
                   labelText: 'Correo Electrónico o DNI',
                   border: OutlineInputBorder(
@@ -37,6 +68,7 @@ class LoginScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               TextField(
+                controller: _passwordController,
                 obscureText: true,
                 decoration: InputDecoration(
                   labelText: 'Contraseña',
@@ -48,22 +80,8 @@ class LoginScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               PrimaryButton(
-                text: 'Entrar como Padre/Apoderado',
-                onPressed: () {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const ParentDashboard()),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              PrimaryButton(
-                text: 'Entrar como Personal (Escáner)',
-                isGhost: true,
-                onPressed: () {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const ScannerScreen()),
-                  );
-                },
+                text: 'Ingresar',
+                onPressed: _handleLogin,
               ),
             ],
           ),
