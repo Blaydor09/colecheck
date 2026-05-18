@@ -5,6 +5,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Incidencias } from './pages/Incidencias';
 import { Asistencia } from './pages/Asistencia';
 import { Estudiantes } from './pages/Estudiantes';
+import { Maestros } from './pages/Maestros';
 import { Configuracion } from './pages/Configuracion';
 import { AppProvider } from './context/AppContext';
 
@@ -20,6 +21,7 @@ function App() {
               <Route path="/attendance" element={<Asistencia />} />
               <Route path="/incidents" element={<Incidencias />} />
               <Route path="/students" element={<Estudiantes />} />
+              <Route path="/teachers" element={<Maestros />} />
               <Route path="/settings" element={<Configuracion />} />
               <Route path="*" element={<div style={{padding: '24px'}}><h2>Página no encontrada</h2></div>} />
             </Routes>

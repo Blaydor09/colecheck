@@ -15,6 +15,14 @@ export interface Student {
   parent?: Parent;
 }
 
+export interface Teacher {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  course: string;
+}
+
 export interface AttendanceLog {
   id: string;
   studentId: string;
@@ -33,12 +41,15 @@ export interface Incident {
 
 interface AppContextType {
   students: Student[];
+  teachers: Teacher[];
   attendanceLogs: AttendanceLog[];
   incidents: Incident[];
   markAttendance: (studentId: string, status: StatusType) => void;
   resolveIncident: (incidentId: string) => void;
   addIncident: (description: string, location: string, studentId?: string) => void;
   addStudent: (student: Omit<Student, 'id'>, parent: Omit<Parent, 'id'>) => void;
+  addTeacher: (teacher: Omit<Teacher, 'id'>) => { success: boolean; error?: string };
+  removeTeacher: (teacherId: string) => void;
 }
 
 const defaultStudents: Student[] = [
@@ -48,6 +59,11 @@ const defaultStudents: Student[] = [
   { id: '4', name: 'Ana Silva', grade: '2do Secundaria', parent: { id: 'p4', name: 'Elena Silva', email: 'elena@ejemplo.com', phone: '+554433221' } },
   { id: '5', name: 'Emma Thompson', grade: '5to Secundaria', parent: { id: 'p5', name: 'William Thompson', email: 'william@ejemplo.com', phone: '+998877665' } },
   { id: '6', name: 'James Wilson', grade: '4to Secundaria', parent: { id: 'p6', name: 'Sarah Wilson', email: 'sarah@ejemplo.com', phone: '+556677889' } },
+];
+
+const defaultTeachers: Teacher[] = [
+  { id: 't1', name: 'Lic. Fernando Salas', email: 'fsalas@colecheck.com', phone: '+56987654321', course: '3ro Secundaria' },
+  { id: 't2', name: 'Prof. Carmen Ortiz', email: 'cortiz@colecheck.com', phone: '+56912345678', course: '5to Primaria' },
 ];
 
 const defaultLogs: AttendanceLog[] = [
@@ -66,6 +82,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [students, setStudents] = useState<Student[]>(defaultStudents);
+  const [teachers, setTeachers] = useState<Teacher[]>(defaultTeachers);
   const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>(defaultLogs);
   const [incidents, setIncidents] = useState<Incident[]>(defaultIncidents);
 
@@ -121,8 +138,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setStudents(prev => [newStudent, ...prev]);
   };
 
+  const addTeacher = (teacherData: Omit<Teacher, 'id'>) => {
+    // Verificar si ya existe un maestro para el mismo curso
+    const courseExists = teachers.some(t => t.course.toLowerCase().trim() === teacherData.course.toLowerCase().trim());
+    if (courseExists) {
+      return { success: false, error: `Ya existe un maestro asignado al curso: ${teacherData.course}` };
+    }
+
+    const newTeacher: Teacher = {
+      ...teacherData,
+      id: 't' + Math.random().toString(36).substr(2, 6)
+    };
+    
+    setTeachers(prev => [newTeacher, ...prev]);
+    return { success: true };
+  };
+
+  const removeTeacher = (teacherId: string) => {
+    setTeachers(prev => prev.filter(t => t.id !== teacherId));
+  };
+
   return (
-    <AppContext.Provider value={{ students, attendanceLogs, incidents, markAttendance, resolveIncident, addIncident, addStudent }}>
+    <AppContext.Provider value={{ 
+      students, teachers, attendanceLogs, incidents, 
+      markAttendance, resolveIncident, addIncident, addStudent, 
+      addTeacher, removeTeacher 
+    }}>
       {children}
     </AppContext.Provider>
   );

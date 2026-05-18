@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, Clock, Settings, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, Users, Clock, Settings, AlertCircle, BookOpen } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import './Sidebar.css';
 
@@ -21,6 +21,10 @@ export const Sidebar: React.FC = () => {
         <NavLink to="/students" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <Users size={20} />
           <span>Estudiantes</span>
+        </NavLink>
+        <NavLink to="/teachers" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+          <BookOpen size={20} />
+          <span>Maestros</span>
         </NavLink>
         <NavLink to="/incidents" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <AlertCircle size={20} />
