@@ -13,6 +13,7 @@ class ScannerScreen extends StatefulWidget {
 class _ScannerScreenState extends State<ScannerScreen> {
   final MobileScannerController cameraController = MobileScannerController();
   bool isProcessing = false;
+  bool isFacialMode = false;
 
   void _onDetect(BarcodeCapture capture) {
     if (isProcessing) return;
@@ -36,14 +37,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
     if (code.toLowerCase().contains('error')) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('QR Inválido o no reconocido'),
+          content: Text(isFacialMode ? 'Rostro no reconocido' : 'QR Inválido o no reconocido'),
           backgroundColor: AppTheme.accentColor,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ingreso registrado exitosamente'),
+        SnackBar(
+          content: Text(isFacialMode ? 'Rostro reconocido exitosamente' : 'Ingreso registrado exitosamente'),
           backgroundColor: AppTheme.successColor,
         ),
       );
@@ -90,14 +91,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 ),
                 // Scanner overlay box
                 Container(
-                  width: 250,
-                  height: 250,
+                  width: isFacialMode ? 200 : 250,
+                  height: isFacialMode ? 300 : 250,
                   decoration: BoxDecoration(
                     border: Border.all(
                       color: isProcessing ? AppTheme.successColor : Colors.white,
                       width: 4,
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: isFacialMode 
+                        ? BorderRadius.circular(150) // Óvalo/Círculo para rostro
+                        : BorderRadius.circular(16),  // Cuadrado para QR
                   ),
                 ),
                 if (isProcessing)
@@ -114,31 +117,51 @@ class _ScannerScreenState extends State<ScannerScreen> {
             flex: 1,
             child: Container(
               color: AppTheme.scaffoldBackgroundColor,
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  const Text(
-                    'Escanea el QR del estudiante',
-                    style: TextStyle(
+                  Text(
+                    isFacialMode ? 'Enfoca el rostro del estudiante' : 'Escanea el QR del estudiante',
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ManualEntryScreen(),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              isFacialMode = !isFacialMode;
+                            });
+                          },
+                          icon: Icon(isFacialMode ? Icons.qr_code_scanner : Icons.face),
+                          label: Text(isFacialMode ? 'Cambiar a QR' : 'Reconocimiento Facial'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.list_alt),
-                    label: const Text('Registro Manual'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                    ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ManualEntryScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.list_alt),
+                          label: const Text('Registro Manual'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
