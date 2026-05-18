@@ -6,6 +6,8 @@ export interface Parent {
   name: string;
   email: string;
   phone: string;
+  hasAppAccess?: boolean;
+  appPassword?: string;
 }
 
 export interface Student {
@@ -51,6 +53,7 @@ interface AppContextType {
   addStudent: (student: Omit<Student, 'id'>, parent: Omit<Parent, 'id'>) => void;
   addTeacher: (teacher: Omit<Teacher, 'id'>) => { success: boolean; error?: string };
   removeTeacher: (teacherId: string) => void;
+  generateParentAccess: (studentId: string) => void;
 }
 
 const defaultStudents: Student[] = [
@@ -159,11 +162,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setTeachers(prev => prev.filter(t => t.id !== teacherId));
   };
 
+  const generateParentAccess = (studentId: string) => {
+    const password = Math.random().toString(36).substring(2, 8).toUpperCase();
+    setStudents(prev => prev.map(student => {
+      if (student.id === studentId && student.parent) {
+        return {
+          ...student,
+          parent: {
+            ...student.parent,
+            hasAppAccess: true,
+            appPassword: password
+          }
+        };
+      }
+      return student;
+    }));
+  };
+
   return (
     <AppContext.Provider value={{ 
       students, teachers, attendanceLogs, incidents, 
       markAttendance, resolveIncident, addIncident, addStudent, 
-      addTeacher, removeTeacher 
+      addTeacher, removeTeacher, generateParentAccess
     }}>
       {children}
     </AppContext.Provider>
