@@ -1,0 +1,27 @@
+name: colecheck-db
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: colecheck-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-colecheck}
+      POSTGRES_USER: ${POSTGRES_USER:-colecheck}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-colecheck_dev_password}
+      TZ: ${TZ:-America/La_Paz}
+      PGTZ: ${PGTZ:-America/La_Paz}
+    ports:
+      - "${POSTGRES_BIND_IP:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - colecheck_postgres_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  colecheck_postgres_data:
