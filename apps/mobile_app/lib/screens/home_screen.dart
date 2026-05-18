@@ -40,23 +40,32 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             
-            const StudentCard(
-              name: 'Juan Pérez',
-              grade: '3ro Secundaria',
-              imageUrl: '',
-              status: StatusType.present,
-              time: '07:55 AM',
-            ),
-            const SizedBox(height: 16),
-            const StudentCard(
-              name: 'María Pérez',
-              grade: '1ro Secundaria',
-              imageUrl: '',
-              status: StatusType.absent,
-              time: 'Pendiente',
-            ),
+            // Renderización dinámica de estudiantes (Relación 1:N simulada)
+            ...[
+              {
+                'name': 'Juan Pérez',
+                'grade': '3ro Secundaria',
+                'status': StatusType.present,
+                'time': '07:55 AM',
+              },
+              {
+                'name': 'María Pérez',
+                'grade': '1ro Secundaria',
+                'status': StatusType.absent,
+                'time': 'Pendiente',
+              }
+            ].map((student) => Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
+              child: StudentCard(
+                name: student['name'] as String,
+                grade: student['grade'] as String,
+                imageUrl: '',
+                status: student['status'] as StatusType,
+                time: student['time'] as String,
+              ),
+            )),
             
-            const SizedBox(height: 32),
+            const SizedBox(height: 16),
             Text(
               'Alertas Recientes',
               style: Theme.of(context).textTheme.titleLarge,

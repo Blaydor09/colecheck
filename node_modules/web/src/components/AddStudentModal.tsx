@@ -17,6 +17,7 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose }) => 
   
   // Parent state
   const [parentName, setParentName] = useState('');
+  const [parentDni, setParentDni] = useState('');
   const [parentEmail, setParentEmail] = useState('');
   const [parentPhone, setParentPhone] = useState('');
 
@@ -24,7 +25,7 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose }) => 
     e.preventDefault();
     addStudent(
       { name: studentName, grade: studentGrade },
-      { name: parentName, email: parentEmail, phone: parentPhone }
+      { name: parentName, dni: parentDni, email: parentEmail, phone: parentPhone }
     );
     onClose();
   };
@@ -84,16 +85,29 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose }) => 
           <div>
             <h3 style={{ fontSize: '16px', color: 'var(--primary)', marginBottom: 'var(--space-md)' }}>Datos del Padre/Apoderado</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', color: 'var(--on-surface-variant)' }}>Nombre Completo</label>
-                <input 
-                  type="text" 
-                  required
-                  value={parentName}
-                  onChange={(e) => setParentName(e.target.value)}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-light)' }} 
-                  placeholder="Ej. Carlos Pérez"
-                />
+              <div style={{ display: 'flex', gap: 'var(--space-md)' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', color: 'var(--on-surface-variant)' }}>DNI / Documento</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={parentDni}
+                    onChange={(e) => setParentDni(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-light)' }} 
+                    placeholder="Ej. 12345678"
+                  />
+                </div>
+                <div style={{ flex: 2 }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', color: 'var(--on-surface-variant)' }}>Nombre Completo</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={parentName}
+                    onChange={(e) => setParentName(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-light)' }} 
+                    placeholder="Ej. Carlos Pérez"
+                  />
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 'var(--space-md)' }}>
                 <div style={{ flex: 1 }}>

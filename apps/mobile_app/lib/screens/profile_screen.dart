@@ -47,18 +47,25 @@ class ProfileScreen extends StatelessWidget {
             
             _buildSectionTitle(context, 'Mis Estudiantes'),
             const SizedBox(height: 16),
-            Card(
+            ...[
+              {'name': 'Juan Pérez', 'grade': '3ro Secundaria', 'initial': 'J'},
+              {'name': 'María Pérez', 'grade': '1ro Secundaria', 'initial': 'M'},
+            ].map((student) => Card(
+              margin: const EdgeInsets.only(bottom: 12),
               child: ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFF0F0F0),
-                  child: Text('J'),
+                leading: CircleAvatar(
+                  backgroundColor: const Color(0xFFF0F0F0),
+                  child: Text(
+                    student['initial']!,
+                    style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+                  ),
                 ),
-                title: const Text('Juan Pérez'),
-                subtitle: const Text('3ro Secundaria'),
+                title: Text(student['name']!),
+                subtitle: Text(student['grade']!),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {},
               ),
-            ),
+            )),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () {},

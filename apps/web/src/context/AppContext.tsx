@@ -4,6 +4,7 @@ import type { StatusType } from '../components/StatusChip';
 export interface Parent {
   id: string;
   name: string;
+  dni: string;
   email: string;
   phone: string;
   hasAppAccess?: boolean;
@@ -57,12 +58,12 @@ interface AppContextType {
 }
 
 const defaultStudents: Student[] = [
-  { id: '1', name: 'Juan Pérez', grade: '3ro Secundaria', parent: { id: 'p1', name: 'Carlos Pérez', email: 'carlos@ejemplo.com', phone: '+123456789' } },
-  { id: '2', name: 'María Gómez', grade: '1ro Secundaria', parent: { id: 'p2', name: 'Laura Gómez', email: 'laura@ejemplo.com', phone: '+987654321' } },
-  { id: '3', name: 'Carlos Díaz', grade: '5to Primaria', parent: { id: 'p3', name: 'Roberto Díaz', email: 'roberto@ejemplo.com', phone: '+112233445' } },
-  { id: '4', name: 'Ana Silva', grade: '2do Secundaria', parent: { id: 'p4', name: 'Elena Silva', email: 'elena@ejemplo.com', phone: '+554433221' } },
-  { id: '5', name: 'Emma Thompson', grade: '5to Secundaria', parent: { id: 'p5', name: 'William Thompson', email: 'william@ejemplo.com', phone: '+998877665' } },
-  { id: '6', name: 'James Wilson', grade: '4to Secundaria', parent: { id: 'p6', name: 'Sarah Wilson', email: 'sarah@ejemplo.com', phone: '+556677889' } },
+  { id: '1', name: 'Juan Pérez', grade: '3ro Secundaria', parent: { id: 'p1', dni: '12345678', name: 'Carlos Pérez', email: 'carlos@ejemplo.com', phone: '+123456789', hasAppAccess: true, appPassword: 'APP123' } },
+  { id: '2', name: 'María Pérez', grade: '1ro Secundaria', parent: { id: 'p1', dni: '12345678', name: 'Carlos Pérez', email: 'carlos@ejemplo.com', phone: '+123456789', hasAppAccess: true, appPassword: 'APP123' } },
+  { id: '3', name: 'Carlos Díaz', grade: '5to Primaria', parent: { id: 'p3', dni: '87654321', name: 'Roberto Díaz', email: 'roberto@ejemplo.com', phone: '+112233445' } },
+  { id: '4', name: 'Ana Silva', grade: '2do Secundaria', parent: { id: 'p4', dni: '11223344', name: 'Elena Silva', email: 'elena@ejemplo.com', phone: '+554433221' } },
+  { id: '5', name: 'Emma Thompson', grade: '5to Secundaria', parent: { id: 'p5', dni: '99887766', name: 'William Thompson', email: 'william@ejemplo.com', phone: '+998877665' } },
+  { id: '6', name: 'James Wilson', grade: '4to Secundaria', parent: { id: 'p6', dni: '55667788', name: 'Sarah Wilson', email: 'sarah@ejemplo.com', phone: '+556677889' } },
 ];
 
 const defaultTeachers: Teacher[] = [
@@ -127,16 +128,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const addStudent = (studentData: Omit<Student, 'id'>, parentData: Omit<Parent, 'id'>) => {
-    const parentId = 'p' + Math.random().toString(36).substr(2, 6);
-    const studentId = Math.random().toString(36).substr(2, 6);
+    // Buscar si ya existe un padre con el mismo DNI en los estudiantes registrados
+    const existingParentStudent = students.find(s => s.parent?.dni === parentData.dni);
     
+    let resolvedParent: Parent;
+    if (existingParentStudent && existingParentStudent.parent) {
+      resolvedParent = existingParentStudent.parent; // Usar el padre existente (incluyendo su ID y credenciales si tiene)
+    } else {
+      resolvedParent = {
+        ...parentData,
+        id: 'p' + Math.random().toString(36).substr(2, 6)
+      };
+    }
+    
+    const studentId = Math.random().toString(36).substr(2, 6);
     const newStudent: Student = {
       ...studentData,
       id: studentId,
-      parent: {
-        ...parentData,
-        id: parentId
-      }
+      parent: resolvedParent
     };
     
     setStudents(prev => [newStudent, ...prev]);
@@ -164,8 +173,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const generateParentAccess = (studentId: string) => {
     const password = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    // Encontramos al estudiante para saber quién es su padre
+    const targetStudent = students.find(s => s.id === studentId);
+    if (!targetStudent || !targetStudent.parent) return;
+    
+    const parentId = targetStudent.parent.id;
+    
+    // Actualizamos a todos los estudiantes que tengan este mismo padre
     setStudents(prev => prev.map(student => {
-      if (student.id === studentId && student.parent) {
+      if (student.parent && student.parent.id === parentId) {
         return {
           ...student,
           parent: {

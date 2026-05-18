@@ -71,6 +71,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     break;
                 }
 
+                final isJuan = index % 2 == 0;
+                final studentName = isJuan ? 'Juan Pérez' : 'María Pérez';
+
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Container(
@@ -82,10 +85,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     child: Icon(leadingIcon, color: leadingColor),
                   ),
                   title: Text(
-                    dateStr,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    studentName,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                   ),
-                  subtitle: Text('Ingreso: $timeStr'),
+                  subtitle: Text('$dateStr • $timeStr'),
                   trailing: StatusChip(status: status),
                   onTap: () {},
                 );
