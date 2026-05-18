@@ -1,15 +1,37 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
-import { useAppContext } from '../context/AppContext';
-import { AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { useAppContext, type Incident } from '../context/AppContext';
+import { AlertCircle, CheckCircle, Clock, Phone, Mail, User, MapPin, AlignLeft, X } from 'lucide-react';
 import './Incidencias.css';
 
 export const Incidencias: React.FC = () => {
   const { incidents, students, resolveIncident } = useAppContext();
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  const [resolutionNote, setResolutionNote] = useState('');
 
   const activeIncidents = incidents.filter(i => i.status === 'active');
   const resolvedIncidents = incidents.filter(i => i.status === 'resolved');
+
+  const handleResolve = (incidentId: string) => {
+    resolveIncident(incidentId, resolutionNote.trim() !== '' ? resolutionNote : undefined);
+    setSelectedIncident(null);
+    setResolutionNote('');
+  };
+
+  const openModal = (incident: Incident) => {
+    setSelectedIncident(incident);
+    setResolutionNote('');
+  };
+
+  const closeModal = () => {
+    setSelectedIncident(null);
+    setResolutionNote('');
+  };
+
+  const selectedStudent = selectedIncident?.studentId 
+    ? students.find(s => s.id === selectedIncident.studentId) 
+    : null;
 
   return (
     <div className="incidencias-page">
@@ -69,15 +91,79 @@ export const Incidencias: React.FC = () => {
                 </div>
               </div>
               <div className="incident-actions">
-                <Button variant="primary" onClick={() => resolveIncident(incident.id)}>
+                <Button variant="primary" onClick={() => openModal(incident)}>
                   Resolver
                 </Button>
-                <Button variant="ghost">Ver detalles</Button>
               </div>
             </Card>
           );
         })}
       </div>
+
+      {selectedIncident && (
+        <div className="incident-modal-overlay" onClick={closeModal}>
+          <div className="incident-modal" onClick={e => e.stopPropagation()}>
+            <div className="incident-modal-header">
+              <h3>Detalles de Incidencia</h3>
+              <button className="icon-button" onClick={closeModal}>
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="incident-modal-content">
+              <div className="info-section">
+                <h4><MapPin size={18} /> Detalles</h4>
+                <p><strong>Ubicación:</strong> {selectedIncident.location}</p>
+                <p><strong>Hora:</strong> {selectedIncident.timestamp}</p>
+                <p><strong>Descripción:</strong> {selectedIncident.description}</p>
+              </div>
+
+              {selectedStudent && selectedStudent.parent && (
+                <>
+                  <div className="info-section">
+                    <h4><User size={18} /> Estudiante</h4>
+                    <p><strong>Nombre:</strong> {selectedStudent.name}</p>
+                    <p><strong>Grado:</strong> {selectedStudent.grade}</p>
+                    <p><strong>ID:</strong> {selectedStudent.id}</p>
+                  </div>
+
+                  <div className="info-section">
+                    <h4><User size={18} /> Apoderado</h4>
+                    <p><strong>Nombre:</strong> {selectedStudent.parent.name}</p>
+                    <div className="contact-buttons">
+                      <a href={`tel:${selectedStudent.parent.phone}`} className="contact-link">
+                        <Phone size={16} /> Llamar ({selectedStudent.parent.phone})
+                      </a>
+                      <a href={`mailto:${selectedStudent.parent.email}`} className="contact-link">
+                        <Mail size={16} /> Correo ({selectedStudent.parent.email})
+                      </a>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="info-section resolution-section">
+                <h4><AlignLeft size={18} /> Resolución</h4>
+                <p className="help-text">Añade una nota o justificación (opcional)</p>
+                <textarea 
+                  value={resolutionNote}
+                  onChange={e => setResolutionNote(e.target.value)}
+                  placeholder="Ej: El alumno presentó justificativo médico..."
+                  rows={3}
+                  className="resolution-textarea"
+                />
+              </div>
+            </div>
+
+            <div className="incident-modal-footer">
+              <Button variant="ghost" onClick={closeModal}>Cancelar</Button>
+              <Button variant="primary" onClick={() => handleResolve(selectedIncident.id)}>
+                Resolver Incidencia
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

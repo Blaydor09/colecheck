@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, type ReactNode } from 'react';
 import type { StatusType } from '../components/StatusChip';
 
 export interface Parent {
@@ -37,6 +37,7 @@ export interface Incident {
   location: string;
   status: 'active' | 'resolved';
   timestamp: string;
+  resolutionNote?: string;
 }
 
 interface AppContextType {
@@ -45,7 +46,7 @@ interface AppContextType {
   attendanceLogs: AttendanceLog[];
   incidents: Incident[];
   markAttendance: (studentId: string, status: StatusType) => void;
-  resolveIncident: (incidentId: string) => void;
+  resolveIncident: (incidentId: string, note?: string) => void;
   addIncident: (description: string, location: string, studentId?: string) => void;
   addStudent: (student: Omit<Student, 'id'>, parent: Omit<Parent, 'id'>) => void;
   addTeacher: (teacher: Omit<Teacher, 'id'>) => { success: boolean; error?: string };
@@ -102,9 +103,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
-  const resolveIncident = (incidentId: string) => {
+  const resolveIncident = (incidentId: string, note?: string) => {
     setIncidents(prev => prev.map(inc => 
-      inc.id === incidentId ? { ...inc, status: 'resolved' } : inc
+      inc.id === incidentId ? { ...inc, status: 'resolved', resolutionNote: note } : inc
     ));
   };
 
