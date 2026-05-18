@@ -16,22 +16,28 @@ export const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ onClose }) => 
   const [phone, setPhone] = useState('');
   const [course, setCourse] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsSaving(true);
 
-    const result = addTeacher({
-      name,
-      email,
-      phone,
-      course
-    });
+    try {
+      const result = await addTeacher({
+        name,
+        email,
+        phone,
+        course
+      });
 
-    if (!result.success && result.error) {
-      setError(result.error);
-    } else {
-      onClose();
+      if (!result.success && result.error) {
+        setError(result.error);
+      } else {
+        onClose();
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -119,7 +125,9 @@ export const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ onClose }) => 
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-md)', marginTop: 'var(--space-md)' }}>
             <Button variant="ghost" onClick={onClose} type="button">Cancelar</Button>
-            <Button variant="primary" type="submit">Guardar Registro</Button>
+            <Button variant="primary" type="submit" disabled={isSaving}>
+              {isSaving ? 'Guardando...' : 'Guardar Registro'}
+            </Button>
           </div>
         </form>
       </Card>

@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { StatusType } from '../components/StatusChip';
+import api from '../services/api';
+import { useAuthContext } from './AuthContext';
 
 export interface Parent {
   id: string;
@@ -51,173 +53,292 @@ interface AppContextType {
   teachers: Teacher[];
   attendanceLogs: AttendanceLog[];
   incidents: Incident[];
-  markAttendance: (studentId: string, status: StatusType) => void;
-  resolveIncident: (incidentId: string, note?: string) => void;
-  addIncident: (description: string, location: string, studentId?: string) => void;
-  addStudent: (student: Omit<Student, 'id'>, parent: Omit<Parent, 'id'>) => void;
-  addTeacher: (teacher: Omit<Teacher, 'id'>) => { success: boolean; error?: string };
-  removeTeacher: (teacherId: string) => void;
-  generateParentAccess: (studentId: string) => void;
-  generateTeacherAccess: (teacherId: string) => void;
+  markAttendance: (studentId: string, status: StatusType) => Promise<void>;
+  resolveIncident: (incidentId: string, note?: string) => Promise<void>;
+  addIncident: (description: string, location: string, studentId?: string) => Promise<void>;
+  addStudent: (student: Omit<Student, 'id'>, parent: Omit<Parent, 'id'>) => Promise<void>;
+  addTeacher: (teacher: Omit<Teacher, 'id'>) => Promise<{ success: boolean; error?: string }>;
+  removeTeacher: (teacherId: string) => Promise<void>;
+  generateParentAccess: (studentId: string) => Promise<void>;
+  generateTeacherAccess: (teacherId: string) => Promise<void>;
 }
-
-const defaultStudents: Student[] = [
-  { id: '1', name: 'Juan Pérez', grade: '3ro Secundaria', parent: { id: 'p1', dni: '12345678', name: 'Carlos Pérez', email: 'carlos@ejemplo.com', phone: '+123456789', hasAppAccess: true, appPassword: 'APP123' } },
-  { id: '2', name: 'María Pérez', grade: '1ro Secundaria', parent: { id: 'p1', dni: '12345678', name: 'Carlos Pérez', email: 'carlos@ejemplo.com', phone: '+123456789', hasAppAccess: true, appPassword: 'APP123' } },
-  { id: '3', name: 'Carlos Díaz', grade: '5to Primaria', parent: { id: 'p3', dni: '87654321', name: 'Roberto Díaz', email: 'roberto@ejemplo.com', phone: '+112233445' } },
-  { id: '4', name: 'Ana Silva', grade: '2do Secundaria', parent: { id: 'p4', dni: '11223344', name: 'Elena Silva', email: 'elena@ejemplo.com', phone: '+554433221' } },
-  { id: '5', name: 'Emma Thompson', grade: '5to Secundaria', parent: { id: 'p5', dni: '99887766', name: 'William Thompson', email: 'william@ejemplo.com', phone: '+998877665' } },
-  { id: '6', name: 'James Wilson', grade: '4to Secundaria', parent: { id: 'p6', dni: '55667788', name: 'Sarah Wilson', email: 'sarah@ejemplo.com', phone: '+556677889' } },
-];
-
-const defaultTeachers: Teacher[] = [
-  { id: 't1', name: 'Lic. Fernando Salas', email: 'fsalas@colecheck.com', phone: '+56987654321', course: '3ro Secundaria', hasAppAccess: true, appPassword: 'PROF123' },
-  { id: 't2', name: 'Prof. Carmen Ortiz', email: 'cortiz@colecheck.com', phone: '+56912345678', course: '5to Primaria' },
-];
-
-const defaultLogs: AttendanceLog[] = [
-  { id: '101', studentId: '1', status: 'present', timestamp: '07:55 AM' },
-  { id: '102', studentId: '2', status: 'late', timestamp: '08:05 AM' },
-  { id: '103', studentId: '4', status: 'present', timestamp: '07:45 AM' },
-];
-
-const defaultIncidents: Incident[] = [
-  { id: '201', studentId: '5', description: 'Falla de reconocimiento facial', location: 'Entrada Principal', status: 'active', timestamp: '08:11 AM' },
-  { id: '202', studentId: '6', description: 'Credencial no válida', location: 'Puerta Norte', status: 'active', timestamp: '08:00 AM' },
-  { id: '203', studentId: null, description: 'Visitante no identificado', location: 'Puerta B', status: 'active', timestamp: '07:30 AM' },
-];
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [students, setStudents] = useState<Student[]>(defaultStudents);
-  const [teachers, setTeachers] = useState<Teacher[]>(defaultTeachers);
-  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>(defaultLogs);
-  const [incidents, setIncidents] = useState<Incident[]>(defaultIncidents);
+const formatTime = (dateValue?: string) => {
+  if (!dateValue) return '';
 
-  const markAttendance = (studentId: string, status: StatusType) => {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    
-    setAttendanceLogs(prev => {
-      // Remove previous log for the same student today to avoid duplicates in this simple mock
-      const filtered = prev.filter(log => log.studentId !== studentId);
-      return [{
-        id: Math.random().toString(36).substr(2, 9),
-        studentId,
-        status,
-        timestamp: timeString
-      }, ...filtered];
-    });
+  return new Date(dateValue).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
+const toStatusType = (status?: string | null): StatusType => {
+  if (status === 'present' || status === 'late' || status === 'absent') {
+    return status;
+  }
+
+  return 'pending';
+};
+
+const getMetadataValue = (metadata: unknown, key: string) => {
+  if (metadata && typeof metadata === 'object' && key in metadata) {
+    const value = (metadata as Record<string, unknown>)[key];
+    return typeof value === 'string' ? value : undefined;
+  }
+
+  return undefined;
+};
+
+const mapApiStudent = (s: any): Student => {
+  const primaryGuardian = s.student_guardians?.find((link: any) => link.is_primary)?.guardians
+    ?? s.student_guardians?.[0]?.guardians;
+  const metadataGrade = getMetadataValue(s.metadata, 'registered_grade_label');
+
+  return {
+    id: s.id,
+    name: s.full_name || [s.first_name, s.last_name].filter(Boolean).join(' ') || 'Sin nombre',
+    grade: s.class_sections?.display_name || s.class_sections?.name || metadataGrade || 'No asignado',
+    faceImage: s.photo_url || undefined,
+    parent: primaryGuardian
+      ? {
+          id: primaryGuardian.id,
+          name: primaryGuardian.full_name,
+          dni: primaryGuardian.document_number,
+          email: primaryGuardian.email || '',
+          phone: primaryGuardian.phone || '',
+          hasAppAccess: primaryGuardian.app_access_enabled
+        }
+      : undefined
+  };
+};
+
+const mapApiTeacher = (staff: any): Teacher => {
+  const metadataCourse = getMetadataValue(staff.metadata, 'assigned_course_label');
+  const assignedSection = staff.class_sections?.[0];
+
+  return {
+    id: staff.id,
+    name: staff.full_name,
+    email: staff.email || '',
+    phone: staff.phone || '',
+    course: assignedSection?.display_name || assignedSection?.name || metadataCourse || 'No asignado',
+    hasAppAccess: staff.app_access_enabled
+  };
+};
+
+const mapApiAttendance = (event: any): AttendanceLog => ({
+  id: event.id,
+  studentId: event.student_id || '',
+  status: toStatusType(event.status_after),
+  timestamp: formatTime(event.event_time)
+});
+
+const mapApiIncident = (incident: any): Incident => ({
+  id: incident.id,
+  studentId: incident.student_id || null,
+  description: incident.description || incident.title || 'Incidencia sin descripcion',
+  location: incident.access_locations?.name || getMetadataValue(incident.metadata, 'location_label') || 'Sin ubicacion',
+  status: incident.status === 'resolved' ? 'resolved' : 'active',
+  timestamp: formatTime(incident.occurred_at),
+  resolutionNote: incident.resolution_note || undefined
+});
+
+export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { isAuthenticated, loading: authLoading } = useAuthContext();
+  const [students, setStudents] = useState<Student[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([]);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+
+  const fetchRealData = async () => {
+    const token = localStorage.getItem('token');
+    if (!token || !isAuthenticated) {
+      setStudents([]);
+      setTeachers([]);
+      setAttendanceLogs([]);
+      setIncidents([]);
+      return;
+    }
+
+    try {
+      const [studentsRes, teachersRes, attendanceRes, incidentsRes] = await Promise.all([
+        api.get('/students'),
+        api.get('/staff'),
+        api.get('/attendance'),
+        api.get('/incidents')
+      ]);
+
+      if (studentsRes.data.success) {
+        setStudents(studentsRes.data.data.map(mapApiStudent));
+      }
+
+      if (teachersRes.data.success) {
+        setTeachers(teachersRes.data.data.map(mapApiTeacher));
+      }
+
+      if (attendanceRes.data.success) {
+        setAttendanceLogs(attendanceRes.data.data.map(mapApiAttendance));
+      }
+
+      if (incidentsRes.data.success) {
+        setIncidents(incidentsRes.data.data.map(mapApiIncident));
+      }
+    } catch (error) {
+      console.error('Error fetching data from backend:', error);
+    }
   };
 
-  const resolveIncident = (incidentId: string, note?: string) => {
-    setIncidents(prev => prev.map(inc => 
-      inc.id === incidentId ? { ...inc, status: 'resolved', resolutionNote: note } : inc
+  useEffect(() => {
+    if (!authLoading) {
+      fetchRealData();
+    }
+  }, [authLoading, isAuthenticated]);
+
+  const markAttendance = async (studentId: string, status: StatusType) => {
+    try {
+      const response = await api.post('/attendance/record', {
+        studentId,
+        method: 'manual',
+        direction: 'entry'
+      });
+
+      if (response.data.success) {
+        const event = response.data.data;
+        const newLog = mapApiAttendance({
+          ...event,
+          status_after: event.status_after || status
+        });
+
+        setAttendanceLogs(prev => [newLog, ...prev.filter(log => log.studentId !== studentId)]);
+      }
+    } catch (error) {
+      console.error('Failed to send attendance to API:', error);
+    }
+  };
+
+  const resolveIncident = async (incidentId: string, note?: string) => {
+    const response = await api.patch(`/incidents/${incidentId}/resolve`, { note });
+
+    if (response.data.success) {
+      const updatedIncident = mapApiIncident(response.data.data);
+      setIncidents(prev => prev.map(inc => inc.id === incidentId ? updatedIncident : inc));
+    }
+  };
+
+  const addIncident = async (description: string, location: string, studentId?: string) => {
+    const response = await api.post('/incidents', {
+      description,
+      location,
+      studentId
+    });
+
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'No se pudo registrar la incidencia');
+    }
+
+    setIncidents(prev => [mapApiIncident(response.data.data), ...prev]);
+  };
+
+  const addStudent = async (studentData: Omit<Student, 'id'>, parentData: Omit<Parent, 'id'>) => {
+    const response = await api.post('/students', {
+      student: studentData,
+      parent: parentData
+    });
+
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'No se pudo registrar el estudiante');
+    }
+
+    setStudents(prev => [mapApiStudent(response.data.data), ...prev]);
+  };
+
+  const addTeacher = async (teacherData: Omit<Teacher, 'id'>) => {
+    try {
+      const response = await api.post('/staff', teacherData);
+
+      if (!response.data.success) {
+        return { success: false, error: response.data.message || 'No se pudo registrar el maestro' };
+      }
+
+      setTeachers(prev => [mapApiTeacher(response.data.data), ...prev]);
+      return { success: true };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.response?.data?.message || 'No se pudo registrar el maestro'
+      };
+    }
+  };
+
+  const removeTeacher = async (teacherId: string) => {
+    const response = await api.delete(`/staff/${teacherId}`);
+
+    if (response.data.success) {
+      setTeachers(prev => prev.filter(t => t.id !== teacherId));
+    }
+  };
+
+  const generateParentAccess = async (studentId: string) => {
+    const response = await api.post(`/students/${studentId}/parent-access`);
+
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'No se pudo generar el acceso del apoderado');
+    }
+
+    const updatedStudent = mapApiStudent(response.data.data);
+    const password = response.data.credentials?.password;
+
+    setStudents(prev => prev.map(student => {
+      if (student.id !== updatedStudent.id) {
+        if (student.parent && updatedStudent.parent && student.parent.id === updatedStudent.parent.id && password) {
+          return {
+            ...student,
+            parent: {
+              ...student.parent,
+              hasAppAccess: true,
+              appPassword: password
+            }
+          };
+        }
+
+        return student;
+      }
+
+      return {
+        ...updatedStudent,
+        parent: updatedStudent.parent
+          ? {
+              ...updatedStudent.parent,
+              appPassword: password
+            }
+          : undefined
+      };
+    }));
+  };
+
+  const generateTeacherAccess = async (teacherId: string) => {
+    const response = await api.post(`/staff/${teacherId}/access`);
+
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'No se pudo generar el acceso del maestro');
+    }
+
+    const updatedTeacher = mapApiTeacher(response.data.data);
+    const password = response.data.credentials?.password;
+
+    setTeachers(prev => prev.map(teacher => teacher.id === updatedTeacher.id
+      ? { ...updatedTeacher, appPassword: password }
+      : teacher
     ));
   };
 
-  const addIncident = (description: string, location: string, studentId?: string) => {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    
-    setIncidents(prev => [{
-      id: Math.random().toString(36).substr(2, 9),
-      studentId: studentId || null,
-      description,
-      location,
-      status: 'active',
-      timestamp: timeString
-    }, ...prev]);
-  };
-
-  const addStudent = (studentData: Omit<Student, 'id'>, parentData: Omit<Parent, 'id'>) => {
-    // Buscar si ya existe un padre con el mismo DNI en los estudiantes registrados
-    const existingParentStudent = students.find(s => s.parent?.dni === parentData.dni);
-    
-    let resolvedParent: Parent;
-    if (existingParentStudent && existingParentStudent.parent) {
-      resolvedParent = existingParentStudent.parent; // Usar el padre existente (incluyendo su ID y credenciales si tiene)
-    } else {
-      resolvedParent = {
-        ...parentData,
-        id: 'p' + Math.random().toString(36).substr(2, 6)
-      };
-    }
-    
-    const studentId = Math.random().toString(36).substr(2, 6);
-    const newStudent: Student = {
-      ...studentData,
-      id: studentId,
-      parent: resolvedParent
-    };
-    
-    setStudents(prev => [newStudent, ...prev]);
-  };
-
-  const addTeacher = (teacherData: Omit<Teacher, 'id'>) => {
-    // Verificar si ya existe un maestro para el mismo curso
-    const courseExists = teachers.some(t => t.course.toLowerCase().trim() === teacherData.course.toLowerCase().trim());
-    if (courseExists) {
-      return { success: false, error: `Ya existe un maestro asignado al curso: ${teacherData.course}` };
-    }
-
-    const newTeacher: Teacher = {
-      ...teacherData,
-      id: 't' + Math.random().toString(36).substr(2, 6)
-    };
-    
-    setTeachers(prev => [newTeacher, ...prev]);
-    return { success: true };
-  };
-
-  const removeTeacher = (teacherId: string) => {
-    setTeachers(prev => prev.filter(t => t.id !== teacherId));
-  };
-
-  const generateParentAccess = (studentId: string) => {
-    const password = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
-    // Encontramos al estudiante para saber quién es su padre
-    const targetStudent = students.find(s => s.id === studentId);
-    if (!targetStudent || !targetStudent.parent) return;
-    
-    const parentId = targetStudent.parent.id;
-    
-    // Actualizamos a todos los estudiantes que tengan este mismo padre
-    setStudents(prev => prev.map(student => {
-      if (student.parent && student.parent.id === parentId) {
-        return {
-          ...student,
-          parent: {
-            ...student.parent,
-            hasAppAccess: true,
-            appPassword: password
-          }
-        };
-      }
-      return student;
-    }));
-  };
-
-  const generateTeacherAccess = (teacherId: string) => {
-    const password = Math.random().toString(36).substring(2, 8).toUpperCase();
-    setTeachers(prev => prev.map(teacher => {
-      if (teacher.id === teacherId) {
-        return {
-          ...teacher,
-          hasAppAccess: true,
-          appPassword: password
-        };
-      }
-      return teacher;
-    }));
-  };
-
   return (
-    <AppContext.Provider value={{ 
-      students, teachers, attendanceLogs, incidents, 
-      markAttendance, resolveIncident, addIncident, addStudent, 
+    <AppContext.Provider value={{
+      students, teachers, attendanceLogs, incidents,
+      markAttendance, resolveIncident, addIncident, addStudent,
       addTeacher, removeTeacher, generateParentAccess, generateTeacherAccess
     }}>
       {children}

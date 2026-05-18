@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card } from '../components/Card';
-import { StatusChip, type StatusType } from '../components/StatusChip';
+import { StatusChip } from '../components/StatusChip';
 import { useAppContext } from '../context/AppContext';
 import { Search } from 'lucide-react';
 import './Asistencia.css';

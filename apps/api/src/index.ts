@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes';
 import studentsRoutes from './routes/students.routes';
 import attendanceRoutes from './routes/attendance.routes';
+import staffRoutes from './routes/staff.routes';
+import incidentsRoutes from './routes/incidents.routes';
 import { errorHandler } from './middlewares/error.middleware';
 
 dotenv.config();
@@ -24,6 +26,8 @@ app.get('/api/v1/health', (req: Request, res: Response) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/students', studentsRoutes);
 app.use('/api/v1/attendance', attendanceRoutes);
+app.use('/api/v1/staff', staffRoutes);
+app.use('/api/v1/incidents', incidentsRoutes);
 
 // Global Error Handler
 app.use(errorHandler as any);

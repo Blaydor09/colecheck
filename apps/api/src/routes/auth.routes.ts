@@ -8,7 +8,7 @@ router.post('/login', login);
 
 // Example protected route
 router.get('/me', verifyToken, (req: AuthRequest, res) => {
-  res.json({ success: true, user: req.user });
+  res.json({ success: true, user: req.user, data: req.user });
 });
 
 export default router;

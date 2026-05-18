@@ -24,6 +24,8 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose }) => 
   // Face image state
   const [faceImage, setFaceImage] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -92,13 +94,22 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose }) => 
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    addStudent(
-      { name: studentName, grade: studentGrade, faceImage: faceImage || undefined },
-      { name: parentName, dni: parentDni, email: parentEmail, phone: parentPhone }
-    );
-    onClose();
+    setSubmitError(null);
+    setIsSaving(true);
+
+    try {
+      await addStudent(
+        { name: studentName, grade: studentGrade, faceImage: faceImage || undefined },
+        { name: parentName, dni: parentDni, email: parentEmail, phone: parentPhone }
+      );
+      onClose();
+    } catch (err: any) {
+      setSubmitError(err.response?.data?.message || err.message || 'No se pudo registrar el estudiante.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -259,8 +270,15 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose }) => 
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-md)', marginTop: 'var(--space-md)' }}>
+            {submitError && (
+              <div style={{ marginRight: 'auto', color: 'var(--danger)', fontSize: '14px', alignSelf: 'center' }}>
+                {submitError}
+              </div>
+            )}
             <Button variant="ghost" onClick={onClose} type="button">Cancelar</Button>
-            <Button variant="primary" type="submit">Guardar Registro</Button>
+            <Button variant="primary" type="submit" disabled={isSaving}>
+              {isSaving ? 'Guardando...' : 'Guardar Registro'}
+            </Button>
           </div>
         </form>
       </Card>

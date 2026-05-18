@@ -5,14 +5,20 @@ import jwt from 'jsonwebtoken';
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body;
+    const identifier = String(req.body.email ?? req.body.username ?? req.body.document_number ?? '').trim();
 
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Please provide email and password' });
+    if (!identifier || !password) {
+      return res.status(400).json({ success: false, message: 'Please provide user and password' });
     }
 
     const user = await prisma.users.findFirst({
-      where: { email },
+      where: {
+        OR: [
+          { email: identifier },
+          { document_number: identifier }
+        ]
+      },
       include: {
         user_roles: true,
         schools: true,
@@ -40,16 +46,25 @@ export const login = async (req: Request, res: Response) => {
       { expiresIn: '1d' }
     );
 
+    const userResponse = {
+      id: user.id,
+      email: user.email,
+      full_name: user.full_name,
+      school_id: user.school_id,
+      schoolId: user.school_id,
+      roles: user.user_roles.map((r: any) => r.role)
+    };
+
+    await prisma.users.update({
+      where: { id: user.id },
+      data: { last_login_at: new Date() }
+    });
+
     res.json({
       success: true,
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        full_name: user.full_name,
-        school_id: user.school_id,
-        roles: user.user_roles.map((r: any) => r.role)
-      }
+      user: userResponse,
+      data: userResponse
     });
   } catch (error) {
     console.error('Login error:', error);
