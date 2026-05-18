@@ -50,17 +50,18 @@ Este rol interactúa principalmente con la **Aplicación Móvil**.
 Este rol es el encargado de registrar la asistencia in-situ (en la puerta del colegio o aula).
 
 *   **Acción Inicial:** Estudiante llega al colegio.
-*   **Decisión:** ¿El estudiante trae su credencial/código QR (o celular)?
-    *   **Sí:** 
+*   **Decisión:** ¿Método de registro a utilizar?
+    *   **Opción A: Reconocimiento Facial (Biometría):**
+        *   El sistema (cámara) escanea el rostro del estudiante.
+        *   *Éxito:* El sistema registra la asistencia (Ingreso).
+        *   *Fallo/No reconocido:* Intenta con QR o pasa a Registro Manual.
+    *   **Opción B: Escaneo de Código QR:** 
         *   **Escanear QR de estudiante.**
-        *   **¿Es válido?**
-            *   *Sí:* El sistema registra la asistencia (Ingreso).
-            *   *No:* El sistema rechaza el código -> Pasa a Registro Manual.
-    *   **No:**
-        *   Pasa a **Registro Manual**.
-*   **Registro Manual (Flujo Alternativo / Checklist):**
-    *   El personal busca al estudiante en la lista.
-    *   Marca su estado manualmente (Presente, Ausente, Retraso).
+        *   *Éxito:* El sistema registra la asistencia (Ingreso).
+        *   *Fallo:* El sistema rechaza el código -> Pasa a Registro Manual.
+    *   **Opción C: Registro Manual (Flujo Alternativo / Checklist):**
+        *   El personal busca al estudiante en la lista de su app.
+        *   Marca su estado manualmente (Presente, Ausente, Retraso).
 *   **Proceso post-registro:**
     *   El sistema procesa la información en la base de datos.
     *   Se disparan notificaciones automáticas a los Padres (vía App/SMS).

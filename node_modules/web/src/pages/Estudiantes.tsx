@@ -1,11 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { useAppContext } from '../context/AppContext';
+import type { Student } from '../context/AppContext';
 import { UserPlus, Search } from 'lucide-react';
+import { AddStudentModal } from '../components/AddStudentModal';
+import { StudentDetailsModal } from '../components/StudentDetailsModal';
 
 export const Estudiantes: React.FC = () => {
   const { students } = useAppContext();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
@@ -14,7 +19,7 @@ export const Estudiantes: React.FC = () => {
           <h2>Directorio de Estudiantes</h2>
           <p className="text-secondary">Gestiona la base de datos de estudiantes y sus perfiles.</p>
         </div>
-        <Button variant="primary">
+        <Button variant="primary" onClick={() => setIsAddModalOpen(true)}>
           <UserPlus size={18} />
           Añadir Estudiante
         </Button>
@@ -46,13 +51,30 @@ export const Estudiantes: React.FC = () => {
                 <td style={{ padding: '16px 24px', color: 'var(--on-surface-variant)' }}>{student.id}</td>
                 <td style={{ padding: '16px 24px' }}>{student.grade}</td>
                 <td style={{ padding: '16px 24px' }}>
-                  <Button variant="ghost" style={{ padding: '4px 12px', fontSize: '13px' }}>Editar</Button>
+                  <Button 
+                    variant="ghost" 
+                    style={{ padding: '4px 12px', fontSize: '13px' }}
+                    onClick={() => setSelectedStudent(student)}
+                  >
+                    Ver Detalles
+                  </Button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </Card>
+
+      {isAddModalOpen && (
+        <AddStudentModal onClose={() => setIsAddModalOpen(false)} />
+      )}
+
+      {selectedStudent && (
+        <StudentDetailsModal 
+          student={selectedStudent} 
+          onClose={() => setSelectedStudent(null)} 
+        />
+      )}
     </div>
   );
 };

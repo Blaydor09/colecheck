@@ -1,10 +1,18 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import type { StatusType } from '../components/StatusChip';
 
+export interface Parent {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+}
+
 export interface Student {
   id: string;
   name: string;
   grade: string;
+  parent?: Parent;
 }
 
 export interface AttendanceLog {
@@ -30,15 +38,16 @@ interface AppContextType {
   markAttendance: (studentId: string, status: StatusType) => void;
   resolveIncident: (incidentId: string) => void;
   addIncident: (description: string, location: string, studentId?: string) => void;
+  addStudent: (student: Omit<Student, 'id'>, parent: Omit<Parent, 'id'>) => void;
 }
 
 const defaultStudents: Student[] = [
-  { id: '1', name: 'Juan Pérez', grade: '3ro Secundaria' },
-  { id: '2', name: 'María Gómez', grade: '1ro Secundaria' },
-  { id: '3', name: 'Carlos Díaz', grade: '5to Primaria' },
-  { id: '4', name: 'Ana Silva', grade: '2do Secundaria' },
-  { id: '5', name: 'Emma Thompson', grade: '5to Secundaria' },
-  { id: '6', name: 'James Wilson', grade: '4to Secundaria' },
+  { id: '1', name: 'Juan Pérez', grade: '3ro Secundaria', parent: { id: 'p1', name: 'Carlos Pérez', email: 'carlos@ejemplo.com', phone: '+123456789' } },
+  { id: '2', name: 'María Gómez', grade: '1ro Secundaria', parent: { id: 'p2', name: 'Laura Gómez', email: 'laura@ejemplo.com', phone: '+987654321' } },
+  { id: '3', name: 'Carlos Díaz', grade: '5to Primaria', parent: { id: 'p3', name: 'Roberto Díaz', email: 'roberto@ejemplo.com', phone: '+112233445' } },
+  { id: '4', name: 'Ana Silva', grade: '2do Secundaria', parent: { id: 'p4', name: 'Elena Silva', email: 'elena@ejemplo.com', phone: '+554433221' } },
+  { id: '5', name: 'Emma Thompson', grade: '5to Secundaria', parent: { id: 'p5', name: 'William Thompson', email: 'william@ejemplo.com', phone: '+998877665' } },
+  { id: '6', name: 'James Wilson', grade: '4to Secundaria', parent: { id: 'p6', name: 'Sarah Wilson', email: 'sarah@ejemplo.com', phone: '+556677889' } },
 ];
 
 const defaultLogs: AttendanceLog[] = [
@@ -56,7 +65,7 @@ const defaultIncidents: Incident[] = [
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [students] = useState<Student[]>(defaultStudents);
+  const [students, setStudents] = useState<Student[]>(defaultStudents);
   const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>(defaultLogs);
   const [incidents, setIncidents] = useState<Incident[]>(defaultIncidents);
 
@@ -96,8 +105,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, ...prev]);
   };
 
+  const addStudent = (studentData: Omit<Student, 'id'>, parentData: Omit<Parent, 'id'>) => {
+    const parentId = 'p' + Math.random().toString(36).substr(2, 6);
+    const studentId = Math.random().toString(36).substr(2, 6);
+    
+    const newStudent: Student = {
+      ...studentData,
+      id: studentId,
+      parent: {
+        ...parentData,
+        id: parentId
+      }
+    };
+    
+    setStudents(prev => [newStudent, ...prev]);
+  };
+
   return (
-    <AppContext.Provider value={{ students, attendanceLogs, incidents, markAttendance, resolveIncident, addIncident }}>
+    <AppContext.Provider value={{ students, attendanceLogs, incidents, markAttendance, resolveIncident, addIncident, addStudent }}>
       {children}
     </AppContext.Provider>
   );
