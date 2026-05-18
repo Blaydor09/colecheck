@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/primary_button.dart';
-import 'home_screen.dart';
+import 'parent_dashboard.dart';
 import 'staff/scanner_screen.dart';
 
 class LoginScreen extends StatelessWidget {
@@ -51,7 +51,7 @@ class LoginScreen extends StatelessWidget {
                 text: 'Entrar como Padre/Apoderado',
                 onPressed: () {
                   Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const HomeScreen()),
+                    MaterialPageRoute(builder: (_) => const ParentDashboard()),
                   );
                 },
               ),
@@ -60,7 +60,6 @@ class LoginScreen extends StatelessWidget {
                 text: 'Entrar como Personal (Escáner)',
                 isGhost: true,
                 onPressed: () {
-                  // Temporalmente usando Placeholder hasta crear la pantalla
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(builder: (_) => const ScannerScreen()),
                   );
