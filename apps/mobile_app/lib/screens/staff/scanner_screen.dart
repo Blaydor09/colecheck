@@ -68,26 +68,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
         title: const Text('Control de Acceso'),
         actions: [
           IconButton(
-            icon: ValueListenableBuilder(
-              valueListenable: cameraController.torchState,
-              builder: (context, state, child) {
-                switch (state) {
-                  case TorchState.off:
-                    return const Icon(Icons.flash_off);
-                  case TorchState.on:
-                    return const Icon(Icons.flash_on);
-                }
-              },
-            ),
+            icon: const Icon(Icons.flash_on),
             onPressed: () => cameraController.toggleTorch(),
           ),
           IconButton(
-            icon: ValueListenableBuilder(
-              valueListenable: cameraController.cameraFacingState,
-              builder: (context, state, child) {
-                return const Icon(Icons.cameraswitch);
-              },
-            ),
+            icon: const Icon(Icons.cameraswitch),
             onPressed: () => cameraController.switchCamera(),
           ),
         ],
