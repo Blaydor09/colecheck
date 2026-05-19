@@ -22,12 +22,14 @@ ON CONFLICT (id) DO UPDATE SET
   timezone = EXCLUDED.timezone,
   updated_at = now();
 
+-- Password hashes are pre-computed with Node.js bcrypt (cost 10) for compatibility.
+-- ADMIN123, APP123, PROF123, CORTIZ1
 INSERT INTO users (id, school_id, email, document_number, full_name, phone, password_hash, status)
 VALUES
-  ('11111111-1111-4111-8111-000000000001', '11111111-1111-4111-8111-111111111111', 'admin@colecheck.com', '90000001', 'Admin Colecheck', '+59170000001', crypt('ADMIN123', gen_salt('bf')), 'active'),
-  ('11111111-1111-4111-8111-000000000002', '11111111-1111-4111-8111-111111111111', 'carlos@ejemplo.com', '12345678', 'Carlos Perez', '+123456789', crypt('APP123', gen_salt('bf')), 'active'),
-  ('11111111-1111-4111-8111-000000000003', '11111111-1111-4111-8111-111111111111', 'fsalas@colecheck.com', '90000003', 'Lic. Fernando Salas', '+56987654321', crypt('PROF123', gen_salt('bf')), 'active'),
-  ('11111111-1111-4111-8111-000000000004', '11111111-1111-4111-8111-111111111111', 'cortiz@colecheck.com', '90000004', 'Prof. Carmen Ortiz', '+56912345678', crypt('CORTIZ1', gen_salt('bf')), 'invited'),
+  ('11111111-1111-4111-8111-000000000001', '11111111-1111-4111-8111-111111111111', 'admin@colecheck.com', '90000001', 'Admin Colecheck', '+59170000001', '$2b$10$owawtKXTxByMvLVIyWF/cOdLk7skpNuvMOGSHo7soFN4zyE0CnHam', 'active'),
+  ('11111111-1111-4111-8111-000000000002', '11111111-1111-4111-8111-111111111111', 'carlos@ejemplo.com', '12345678', 'Carlos Perez', '+123456789', '$2b$10$xdrjxQXykaj4ZlnNtPYxr.qnuXaJk/yd.ANL6Pxl5gJrfeFBwlhZa', 'active'),
+  ('11111111-1111-4111-8111-000000000003', '11111111-1111-4111-8111-111111111111', 'fsalas@colecheck.com', '90000003', 'Lic. Fernando Salas', '+56987654321', '$2b$10$oc18UpWyYgutAPpGYyadmeiaZwjZaLNeodJGHmHvzHBe3rKafdVsu', 'active'),
+  ('11111111-1111-4111-8111-000000000004', '11111111-1111-4111-8111-111111111111', 'cortiz@colecheck.com', '90000004', 'Prof. Carmen Ortiz', '+56912345678', '$2b$10$r0v1qugcWPCnH4GDtC7pEeIlrTCyYcyi7O.cDpNLDQtPbnRH.9WV.', 'invited'),
   ('11111111-1111-4111-8111-000000000005', '11111111-1111-4111-8111-111111111111', 'roberto@ejemplo.com', '87654321', 'Roberto Diaz', '+112233445', NULL, 'invited'),
   ('11111111-1111-4111-8111-000000000006', '11111111-1111-4111-8111-111111111111', 'elena@ejemplo.com', '11223344', 'Elena Silva', '+554433221', NULL, 'invited'),
   ('11111111-1111-4111-8111-000000000007', '11111111-1111-4111-8111-111111111111', 'william@ejemplo.com', '99887766', 'William Thompson', '+998877665', NULL, 'invited'),

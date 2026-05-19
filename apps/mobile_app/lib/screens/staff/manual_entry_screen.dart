@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/app_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/student_card.dart';
-import '../../widgets/status_chip.dart';
 
 class ManualEntryScreen extends StatefulWidget {
   const ManualEntryScreen({super.key});
@@ -11,24 +12,41 @@ class ManualEntryScreen extends StatefulWidget {
 }
 
 class _ManualEntryScreenState extends State<ManualEntryScreen> {
-  final List<Map<String, dynamic>> _mockStudents = [
-    {'name': 'Juan Pérez', 'grade': '3ro Secundaria', 'status': StatusType.pending},
-    {'name': 'María Gómez', 'grade': '1ro Secundaria', 'status': StatusType.present},
-    {'name': 'Carlos Díaz', 'grade': '5to Primaria', 'status': StatusType.pending},
-    {'name': 'Ana Silva', 'grade': '2do Secundaria', 'status': StatusType.absent},
-    {'name': 'Emma Thompson', 'grade': '5to Secundaria', 'status': StatusType.late},
-  ];
-
   String _searchQuery = '';
+  String? _processingStudentId;
 
-  void _markAttendance(int index, StatusType newStatus) {
-    setState(() {
-      _mockStudents[index]['status'] = newStatus;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final appProvider = context.read<AppProvider>();
+      if (appProvider.students.isEmpty && !appProvider.isLoading) {
+        appProvider.fetchStaffData();
+      }
     });
-    
+  }
+
+  Future<void> _markAttendance(String studentId, String status) async {
+    setState(() => _processingStudentId = studentId);
+
+    final appProvider = context.read<AppProvider>();
+    final success = await appProvider.recordAttendance(
+      studentId: studentId,
+      method: 'manual',
+      direction: 'entry',
+    );
+
+    if (!mounted) return;
+    setState(() => _processingStudentId = null);
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Estado actualizado a ${newStatus.name}'),
+        content: Text(
+          success
+              ? 'Asistencia registrada exitosamente'
+              : 'Error al registrar asistencia',
+        ),
+        backgroundColor: success ? AppTheme.successColor : AppTheme.accentColor,
         duration: const Duration(seconds: 1),
       ),
     );
@@ -36,8 +54,10 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredStudents = _mockStudents.where((s) {
-      return s['name'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
+    final appProvider = context.watch<AppProvider>();
+
+    final filteredStudents = appProvider.students.where((s) {
+      return s.name.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
 
     return Scaffold(
@@ -62,55 +82,79 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: filteredStudents.length,
-              itemBuilder: (context, index) {
-                final student = filteredStudents[index];
-                
-                // Original index in _mockStudents to update the real state
-                final realIndex = _mockStudents.indexOf(student);
+            child: appProvider.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : filteredStudents.isEmpty
+                    ? Center(
+                        child: Text(
+                          _searchQuery.isNotEmpty
+                              ? 'No se encontraron estudiantes.'
+                              : 'No hay estudiantes registrados.',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: () => appProvider.fetchStaffData(),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: filteredStudents.length,
+                          itemBuilder: (context, index) {
+                            final student = filteredStudents[index];
+                            final isProcessing =
+                                _processingStudentId == student.id;
 
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Column(
-                      children: [
-                        StudentCard(
-                          name: student['name'],
-                          grade: student['grade'],
-                          imageUrl: '',
-                          status: student['status'],
-                          time: '--:--',
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Column(
+                                  children: [
+                                    StudentCard(
+                                      name: student.name,
+                                      grade: student.grade,
+                                      imageUrl: student.photoUrl ?? '',
+                                      status: student.todayStatus,
+                                      time: student.todayTime,
+                                    ),
+                                    const Divider(),
+                                    if (isProcessing)
+                                      const Padding(
+                                        padding:
+                                            EdgeInsets.symmetric(vertical: 8),
+                                        child: CircularProgressIndicator(),
+                                      )
+                                    else
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        children: [
+                                          _buildActionButton(
+                                            'Ingreso',
+                                            AppTheme.successColor,
+                                            () => _markAttendance(
+                                                student.id, 'present'),
+                                          ),
+                                          _buildActionButton(
+                                            'Retraso',
+                                            AppTheme.warningColor,
+                                            () => _markAttendance(
+                                                student.id, 'late'),
+                                          ),
+                                          _buildActionButton(
+                                            'Falta',
+                                            AppTheme.accentColor,
+                                            () => _markAttendance(
+                                                student.id, 'absent'),
+                                          ),
+                                        ],
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        const Divider(),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildActionButton(
-                              'Ingreso',
-                              AppTheme.successColor,
-                              () => _markAttendance(realIndex, StatusType.present),
-                            ),
-                            _buildActionButton(
-                              'Retraso',
-                              AppTheme.warningColor,
-                              () => _markAttendance(realIndex, StatusType.late),
-                            ),
-                            _buildActionButton(
-                              'Falta',
-                              AppTheme.accentColor,
-                              () => _markAttendance(realIndex, StatusType.absent),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+                      ),
           ),
         ],
       ),

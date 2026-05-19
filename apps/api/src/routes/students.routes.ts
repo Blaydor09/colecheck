@@ -92,6 +92,45 @@ const ensureGuardianUser = async (
   return user;
 };
 
+// Get students linked to the current guardian/parent user
+router.get('/my-children', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Invalid session' });
+    }
+
+    // Find guardian records linked to this user
+    const guardians = await prisma.guardians.findMany({
+      where: { user_id: userId },
+      include: {
+        student_guardians: {
+          include: {
+            students: {
+              include: studentDetailsInclude
+            }
+          }
+        }
+      }
+    });
+
+    // Flatten all students from all guardian links
+    const students = guardians.flatMap(g =>
+      g.student_guardians.map(sg => sg.students)
+    ).filter(Boolean);
+
+    // Remove duplicates by student id
+    const uniqueStudents = Array.from(
+      new Map(students.map(s => [s.id, s])).values()
+    );
+
+    res.json({ success: true, data: uniqueStudents });
+  } catch (error) {
+    console.error('Failed to fetch children:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch children' });
+  }
+});
+
 // Get all students for a school
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {

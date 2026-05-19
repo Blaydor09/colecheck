@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/app_provider.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -6,6 +9,10 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final appProvider = context.watch<AppProvider>();
+    final user = authProvider.user;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mi Perfil'),
@@ -19,7 +26,8 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 50,
-                    backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                    backgroundColor:
+                        Theme.of(context).primaryColor.withOpacity(0.1),
                     child: Icon(
                       Icons.person,
                       size: 60,
@@ -28,57 +36,61 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Carlos Pérez',
+                    user?.fullName ?? 'Usuario',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'carlos@ejemplo.com',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  Text(
-                    '+123456789',
+                    user?.email ?? '',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 40),
-            
+
             _buildSectionTitle(context, 'Mis Estudiantes'),
             const SizedBox(height: 16),
-            ...[
-              {'name': 'Juan Pérez', 'grade': '3ro Secundaria', 'initial': 'J'},
-              {'name': 'María Pérez', 'grade': '1ro Secundaria', 'initial': 'M'},
-            ].map((student) => Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: const Color(0xFFF0F0F0),
+
+            if (appProvider.students.isEmpty)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
                   child: Text(
-                    student['initial']!,
-                    style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+                    'No hay estudiantes vinculados.',
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),
-                title: Text(student['name']!),
-                subtitle: Text(student['grade']!),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {},
-              ),
-            )),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.add),
-              label: const Text('Vincular nuevo estudiante'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            
+              )
+            else
+              ...appProvider.students.map((student) => Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: const Color(0xFFF0F0F0),
+                        backgroundImage: student.photoUrl != null &&
+                                student.photoUrl!.isNotEmpty
+                            ? NetworkImage(student.photoUrl!)
+                            : null,
+                        child: student.photoUrl == null ||
+                                student.photoUrl!.isEmpty
+                            ? Text(
+                                student.name.isNotEmpty
+                                    ? student.name[0].toUpperCase()
+                                    : '?',
+                                style: const TextStyle(
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.bold),
+                              )
+                            : null,
+                      ),
+                      title: Text(student.name),
+                      subtitle: Text(student.grade),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {},
+                    ),
+                  )),
+
             const SizedBox(height: 32),
             _buildSectionTitle(context, 'Configuración'),
             const SizedBox(height: 16),
@@ -101,10 +113,13 @@ class ProfileScreen extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 48),
             TextButton.icon(
-              onPressed: () {
+              onPressed: () async {
+                await authProvider.logout();
+                appProvider.clear();
+                if (!context.mounted) return;
                 Navigator.of(context, rootNavigator: true).pushReplacement(
                   MaterialPageRoute(builder: (_) => const LoginScreen()),
                 );
@@ -128,8 +143,8 @@ class ProfileScreen extends StatelessWidget {
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: Theme.of(context).primaryColor,
-        ),
+              color: Theme.of(context).primaryColor,
+            ),
       ),
     );
   }

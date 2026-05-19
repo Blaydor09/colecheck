@@ -4,10 +4,11 @@ Colecheck es una plataforma integral diseñada para modernizar y asegurar el con
 
 ## 🚀 Arquitectura del Proyecto
 
-Este proyecto está construido bajo una arquitectura de **Monorepo** y se divide en dos aplicaciones principales:
+Este proyecto está construido bajo una arquitectura de **Monorepo** y se divide en tres módulos principales:
 
-1. **Panel Administrativo (Web):** Desarrollado con **React, Vite y TypeScript**, enfocado en la administración general (Directores, Seguridad Global, Administradores).
-2. **Aplicación Móvil (Flutter):** Una única app nativa que utiliza **Control de Acceso Basado en Roles (RBAC)** para servir a dos tipos de usuarios:
+1. **API Backend (Node.js):** Servidor Express con Prisma + PostgreSQL que maneja autenticación (JWT), gestión de estudiantes, asistencia e incidencias.
+2. **Panel Administrativo (Web):** Desarrollado con **React, Vite y TypeScript**, enfocado en la administración general (Directores, Seguridad Global, Administradores).
+3. **Aplicación Móvil (Flutter):** Una única app nativa que utiliza **Control de Acceso Basado en Roles (RBAC)** para servir a dos tipos de usuarios:
    - **Padres/Apoderados:** Reciben notificaciones y revisan el historial de sus hijos.
    - **Personal de Control (Maestros/Guardias):** Escanean los códigos QR en las puertas y pueden registrar asistencia de forma manual.
 
@@ -19,6 +20,7 @@ Antes de ejecutar el proyecto en tu máquina local, asegúrate de tener instalad
 
 - **Node.js** (v18 o superior) y **npm**.
 - **Flutter SDK** (v3.19 o superior) configurado en tu PATH.
+- **Docker** (para la base de datos PostgreSQL).
 - (Opcional) Un emulador de Android/iOS o un dispositivo físico conectado.
 
 ---
@@ -32,10 +34,29 @@ Antes de ejecutar el proyecto en tu máquina local, asegúrate de tener instalad
    ```
 
 2. **Instalar dependencias globales (Monorepo):**
-   *(Este comando instalará las dependencias de los módulos de Node.js, como la web).*
+   *(Este comando instalará las dependencias de los módulos de Node.js, como la web y la API).*
    ```bash
    npm install
    ```
+
+---
+
+## 🗄️ Base de Datos y API Backend
+
+**Paso obligatorio antes de ejecutar la web o la app móvil.**
+
+1. Levanta la base de datos PostgreSQL:
+   ```bash
+   cd database
+   docker compose up -d
+   ```
+2. Instala dependencias e inicia la API:
+   ```bash
+   cd apps/api
+   npm install
+   npm run dev
+   ```
+3. Verifica que la API esté corriendo: `http://localhost:3005/api/v1/health`
 
 ---
 
@@ -51,14 +72,16 @@ El panel web te permite gestionar incidencias, revisar estadísticas globales en
    ```bash
    npm run dev
    ```
-3. Abre tu navegador y ve a `http://localhost:5173/`. 
-*(Actualmente la app usa datos simulados (Mock Data) para demostrar la interactividad del sistema global de estados).*
+3. Abre tu navegador y ve a `http://localhost:5173/`.
+4. **Credenciales de prueba (Admin):**
+   - **Correo:** `admin@colecheck.com`
+   - **Contraseña:** `ADMIN123`
 
 ---
 
 ## 📱 Ejecución de la Aplicación Móvil (Padres y Personal)
 
-La app móvil permite simular tanto la vista del Padre como la del Guardia desde una sola base de código.
+La app móvil permite tanto la vista del Padre como la del Guardia desde una sola base de código.
 
 1. Navega a la carpeta de la app móvil:
    ```bash
@@ -74,7 +97,7 @@ La app móvil permite simular tanto la vista del Padre como la del Guardia desde
    ```
 4. **Flujo de Prueba en la App:**
    - La app abrirá la pantalla de Login con un formulario único.
-   - El sistema detectará automáticamente tu rol según las siguientes credenciales estáticas de prueba:
+   - El sistema detectará automáticamente tu rol según las credenciales:
      - **Acceso Padre/Apoderado:**
        - **Usuario/Correo:** `carlos@ejemplo.com`
        - **Contraseña:** `APP123`
@@ -89,3 +112,4 @@ La app móvil permite simular tanto la vista del Padre como la del Guardia desde
 En la carpeta `Docs/` encontrarás más información sobre los flujos del sistema y diagramas operativos de la lógica de asistencia y notificaciones.
 
 *Colecheck - Safe & Calm Aesthetic UI v1.0*
+

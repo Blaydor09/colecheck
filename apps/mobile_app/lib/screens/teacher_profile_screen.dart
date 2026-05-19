@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/app_provider.dart';
 import 'login_screen.dart';
 
 class TeacherProfileScreen extends StatelessWidget {
@@ -6,6 +9,10 @@ class TeacherProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final appProvider = context.watch<AppProvider>();
+    final user = authProvider.user;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mi Perfil (Personal)'),
@@ -20,7 +27,8 @@ class TeacherProfileScreen extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 50,
-                    backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                    backgroundColor:
+                        Theme.of(context).primaryColor.withOpacity(0.1),
                     child: Icon(
                       Icons.badge,
                       size: 60,
@@ -29,12 +37,12 @@ class TeacherProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Lic. Fernando Salas',
+                    user?.fullName ?? 'Personal',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'fsalas@colecheck.com',
+                    user?.email ?? '',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
@@ -42,7 +50,10 @@ class TeacherProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 48),
             TextButton.icon(
-              onPressed: () {
+              onPressed: () async {
+                await authProvider.logout();
+                appProvider.clear();
+                if (!context.mounted) return;
                 Navigator.of(context, rootNavigator: true).pushReplacement(
                   MaterialPageRoute(builder: (_) => const LoginScreen()),
                 );

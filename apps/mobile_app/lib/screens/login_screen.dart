@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/app_provider.dart';
 import '../widgets/primary_button.dart';
 import 'parent_dashboard.dart';
 import 'teacher_dashboard.dart';
@@ -13,23 +16,52 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
 
-  void _handleLogin() {
+  Future<void> _handleLogin() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (email == 'carlos@ejemplo.com' && password == 'APP123') {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const ParentDashboard()),
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor ingresa tu correo/DNI y contraseña.'),
+          backgroundColor: Colors.orange,
+        ),
       );
-    } else if (email == 'fsalas@colecheck.com' && password == 'PROF123') {
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final authProvider = context.read<AuthProvider>();
+    final success = await authProvider.login(email, password);
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (success && authProvider.user != null) {
+      final user = authProvider.user!;
+
+      // Fetch data based on role
+      final appProvider = context.read<AppProvider>();
+      if (user.isGuardian) {
+        appProvider.fetchParentData();
+      } else {
+        appProvider.fetchStaffData();
+      }
+
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const TeacherDashboard()),
+        MaterialPageRoute(
+          builder: (_) => user.isGuardian
+              ? const ParentDashboard()
+              : const TeacherDashboard(),
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Credenciales incorrectas. Ver el README para los usuarios de prueba.'),
+        SnackBar(
+          content: Text(authProvider.errorMessage ?? 'Credenciales incorrectas.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -77,12 +109,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   prefixIcon: const Icon(Icons.lock_outline),
                 ),
+                onSubmitted: (_) => _handleLogin(),
               ),
               const SizedBox(height: 24),
-              PrimaryButton(
-                text: 'Ingresar',
-                onPressed: _handleLogin,
-              ),
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : PrimaryButton(
+                      text: 'Ingresar',
+                      onPressed: _handleLogin,
+                    ),
             ],
           ),
         ),

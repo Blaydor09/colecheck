@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import 'login_screen.dart';
+import 'parent_dashboard.dart';
+import 'teacher_dashboard.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -12,12 +16,33 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
+    _checkSession();
+  }
+
+  Future<void> _checkSession() async {
+    final authProvider = context.read<AuthProvider>();
+    await authProvider.tryRestoreSession();
+
+    if (!mounted) return;
+
+    // Small delay for splash branding
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+
+    if (authProvider.isAuthenticated && authProvider.user != null) {
+      final user = authProvider.user!;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => user.isGuardian
+              ? const ParentDashboard()
+              : const TeacherDashboard(),
+        ),
+      );
+    } else {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
-    });
+    }
   }
 
   @override
@@ -55,6 +80,10 @@ class _SplashScreenState extends State<SplashScreen> {
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.white70,
                   ),
+            ),
+            const SizedBox(height: 32),
+            const CircularProgressIndicator(
+              color: Colors.white70,
             ),
           ],
         ),

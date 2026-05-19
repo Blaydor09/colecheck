@@ -6,6 +6,48 @@ const router = Router();
 
 router.use(verifyToken);
 
+// Get attendance events for the current guardian/parent's students only
+router.get('/my-students', async (req: any, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Invalid session' });
+    }
+
+    // Find guardian records linked to this user
+    const guardians = await prisma.guardians.findMany({
+      where: { user_id: userId },
+      include: {
+        student_guardians: true
+      }
+    });
+
+    const studentIds = guardians.flatMap(g =>
+      g.student_guardians.map(sg => sg.student_id)
+    );
+
+    if (studentIds.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const events = await prisma.attendance_events.findMany({
+      where: {
+        student_id: { in: studentIds }
+      },
+      include: {
+        students: true
+      },
+      orderBy: { event_time: 'desc' },
+      take: 100
+    });
+
+    res.json({ success: true, data: events });
+  } catch (error) {
+    console.error('Failed to fetch guardian attendance:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch guardian attendance' });
+  }
+});
+
 router.get('/', async (req: any, res) => {
   try {
     const schoolId = req.user?.schoolId;

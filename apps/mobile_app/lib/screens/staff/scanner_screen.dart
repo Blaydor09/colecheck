@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:provider/provider.dart';
+import '../../providers/app_provider.dart';
+import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import 'manual_entry_screen.dart';
 
@@ -28,24 +31,52 @@ class _ScannerScreenState extends State<ScannerScreen> {
   Future<void> _processScannedCode(String code) async {
     setState(() => isProcessing = true);
     
-    // Simulating API call
-    await Future.delayed(const Duration(milliseconds: 800));
-    
-    if (!mounted) return;
+    try {
+      // The QR code should contain the student ID
+      final appProvider = context.read<AppProvider>();
+      final success = await appProvider.recordAttendance(
+        studentId: code,
+        method: isFacialMode ? 'biometric' : 'qr',
+        direction: 'entry',
+      );
 
-    // Dummy validation logic: If it contains 'error', show red toast, else green.
-    if (code.toLowerCase().contains('error')) {
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isFacialMode
+                ? 'Rostro reconocido exitosamente'
+                : 'Ingreso registrado exitosamente'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isFacialMode
+                ? 'Rostro no reconocido'
+                : 'QR Inválido o estudiante no encontrado'),
+            backgroundColor: AppTheme.accentColor,
+          ),
+        );
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(isFacialMode ? 'Rostro no reconocido' : 'QR Inválido o no reconocido'),
+          content: Text(e.message),
           backgroundColor: AppTheme.accentColor,
         ),
       );
-    } else {
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(isFacialMode ? 'Rostro reconocido exitosamente' : 'Ingreso registrado exitosamente'),
-          backgroundColor: AppTheme.successColor,
+          content: Text(isFacialMode
+              ? 'Rostro no reconocido'
+              : 'QR Inválido o no reconocido'),
+          backgroundColor: AppTheme.accentColor,
         ),
       );
     }

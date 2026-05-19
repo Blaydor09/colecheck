@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/app_provider.dart';
 import '../widgets/status_chip.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -11,8 +14,27 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   int _selectedFilter = 0;
 
+  List<AttendanceEvent> _filteredEvents(List<AttendanceEvent> allEvents) {
+    final now = DateTime.now();
+
+    switch (_selectedFilter) {
+      case 0: // Esta semana
+        final weekStart = now.subtract(Duration(days: now.weekday - 1));
+        final startOfWeek = DateTime(weekStart.year, weekStart.month, weekStart.day);
+        return allEvents.where((e) => e.eventTime.isAfter(startOfWeek)).toList();
+      case 1: // Este mes
+        final startOfMonth = DateTime(now.year, now.month, 1);
+        return allEvents.where((e) => e.eventTime.isAfter(startOfMonth)).toList();
+      default: // Todos
+        return allEvents;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final appProvider = context.watch<AppProvider>();
+    final events = _filteredEvents(appProvider.attendanceHistory);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Historial de Asistencia'),
@@ -36,68 +58,105 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
           ),
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              itemCount: 15,
-              separatorBuilder: (context, index) => const Divider(height: 16, color: Color(0xFFEFDEE0)),
-              itemBuilder: (context, index) {
-                // Mock data generation
-                final isLate = index == 2 || index == 8;
-                final isAbsent = index == 5;
-                final status = isAbsent ? StatusType.absent : (isLate ? StatusType.late : StatusType.present);
-                final timeStr = isAbsent ? '--:--' : (isLate ? '08:15 AM' : '07:${45 + (index % 10)} AM');
-                final dateStr = '${19 - index} de Mayo, 2026';
-                
-                IconData leadingIcon;
-                Color leadingColor;
-                
-                switch (status) {
-                  case StatusType.present:
-                    leadingIcon = Icons.check_circle;
-                    leadingColor = const Color(0xFF43B98A); // Success Green
-                    break;
-                  case StatusType.late:
-                    leadingIcon = Icons.schedule;
-                    leadingColor = const Color(0xFFFFC857); // Warm Yellow
-                    break;
-                  case StatusType.absent:
-                    leadingIcon = Icons.cancel;
-                    leadingColor = Theme.of(context).colorScheme.error;
-                    break;
-                  case StatusType.pending:
-                  default:
-                    leadingIcon = Icons.hourglass_empty;
-                    leadingColor = Colors.grey;
-                    break;
-                }
+            child: appProvider.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : events.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.history, size: 64, color: Colors.grey.shade300),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No hay registros para este período.',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: () async {
+                          final authProvider = context.read<AuthProvider>();
+                          if (authProvider.user?.isGuardian == true) {
+                            await appProvider.fetchParentData();
+                          } else {
+                            await appProvider.fetchStaffData();
+                          }
+                        },
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 8),
+                          itemCount: events.length,
+                          separatorBuilder: (context, index) =>
+                              const Divider(height: 16, color: Color(0xFFEFDEE0)),
+                          itemBuilder: (context, index) {
+                            final event = events[index];
 
-                final isJuan = index % 2 == 0;
-                final studentName = isJuan ? 'Juan Pérez' : 'María Pérez';
+                            IconData leadingIcon;
+                            Color leadingColor;
 
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: leadingColor.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(leadingIcon, color: leadingColor),
-                  ),
-                  title: Text(
-                    studentName,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text('$dateStr • $timeStr'),
-                  trailing: StatusChip(status: status),
-                  onTap: () {},
-                );
-              },
-            ),
+                            switch (event.status) {
+                              case StatusType.present:
+                                leadingIcon = Icons.check_circle;
+                                leadingColor = const Color(0xFF43B98A);
+                                break;
+                              case StatusType.late:
+                                leadingIcon = Icons.schedule;
+                                leadingColor = const Color(0xFFFFC857);
+                                break;
+                              case StatusType.absent:
+                                leadingIcon = Icons.cancel;
+                                leadingColor =
+                                    Theme.of(context).colorScheme.error;
+                                break;
+                              case StatusType.pending:
+                                leadingIcon = Icons.hourglass_empty;
+                                leadingColor = Colors.grey;
+                                break;
+                            }
+
+                            // Format date
+                            final dateStr =
+                                '${event.eventTime.day} de ${_monthName(event.eventTime.month)}, ${event.eventTime.year}';
+
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: leadingColor.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child:
+                                    Icon(leadingIcon, color: leadingColor),
+                              ),
+                              title: Text(
+                                event.studentName,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              subtitle:
+                                  Text('$dateStr • ${event.timeStr}'),
+                              trailing: StatusChip(status: event.status),
+                              onTap: () {},
+                            );
+                          },
+                        ),
+                      ),
           ),
         ],
       ),
     );
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    return months[month - 1];
   }
 
   Widget _buildFilterChip(String label, int index) {
@@ -121,7 +180,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).primaryColor.withOpacity(0.3),
+          color: isSelected
+              ? Theme.of(context).primaryColor
+              : Theme.of(context).primaryColor.withOpacity(0.3),
         ),
       ),
     );
