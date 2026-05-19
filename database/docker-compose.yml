@@ -1,4 +1,4 @@
-name: colecheck-db
+version: '3.8'
 
 services:
   postgres:
