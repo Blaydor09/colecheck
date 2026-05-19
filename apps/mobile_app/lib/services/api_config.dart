@@ -2,9 +2,9 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 class ApiConfig {
-  /// Base URL for the Colecheck API.
-  /// - Android Emulator uses 10.0.2.2 to reach host localhost.
-  /// - iOS Simulator / Web / Desktop use localhost directly.
+  /// Base URL for the Colecheck API (production).
+  /// static const String baseUrl = 'https://colecheck.sisganadero.online/api/v1';
+  ///}
   static String get baseUrl {
     const port = '3005';
 
