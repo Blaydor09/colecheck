@@ -33,8 +33,8 @@ DATABASE_URL=postgresql://colecheck:TU_PASSWORD_SEGURO@127.0.0.1:5432/colecheck
 ```
 
 ```bash
-docker-compose up -d
-docker exec colecheck-postgres pg_isready -U colecheck   # Verificar
+sudo docker-compose up -d
+sudo docker exec colecheck-postgres pg_isready -U colecheck   # Verificar
 ```
 
 > Si no quieres datos demo, elimina `init/002_seed_demo.sql` antes del `docker-compose up`.
