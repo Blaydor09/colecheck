@@ -26,11 +26,13 @@ POSTGRES_DB=colecheck
 POSTGRES_USER=colecheck
 POSTGRES_PASSWORD=TU_PASSWORD_SEGURO       # openssl rand -base64 32
 POSTGRES_BIND_IP=127.0.0.1
-POSTGRES_PORT=5432
+POSTGRES_PORT=5434                         # Cambiar si 5432 está ocupado
 TZ=America/La_Paz
 PGTZ=America/La_Paz
-DATABASE_URL=postgresql://colecheck:TU_PASSWORD_SEGURO@127.0.0.1:5432/colecheck
+DATABASE_URL=postgresql://colecheck:TU_PASSWORD_SEGURO@127.0.0.1:5434/colecheck
 ```
+
+> Si el puerto 5432 ya está ocupado por otro proyecto, usa 5434 u otro libre. Verifica con: `sudo ss -tlnp | grep 543`
 
 ```bash
 sudo docker-compose up -d
@@ -50,7 +52,7 @@ nano .env
 ```
 
 ```env
-DATABASE_URL="postgresql://colecheck:TU_PASSWORD_SEGURO@127.0.0.1:5432/colecheck"
+DATABASE_URL="postgresql://colecheck:TU_PASSWORD_SEGURO@127.0.0.1:5434/colecheck"
 JWT_SECRET="GENERA_CON_openssl_rand_base64_64"
 PORT=3005
 NODE_ENV=production
@@ -97,6 +99,7 @@ sudo nano /etc/nginx/sites-available/colecheck
 server {
     listen 80;
     server_name colecheck.tudominio.com;   # o server_name _; si usas IP
+    client_max_body_size 10M;
 
     root /var/www/colecheck;
     index index.html;
@@ -184,3 +187,27 @@ crontab -e
 ```
 0 2 * * * docker exec colecheck-postgres pg_dump -U colecheck colecheck | gzip > /opt/backups/colecheck/backup_$(date +\%Y\%m\%d).sql.gz && find /opt/backups/colecheck -name "*.sql.gz" -mtime +30 -delete
 ```
+
+### Eliminar todas las conf
+
+# 1. Detener la API
+pm2 delete colecheck-api
+pm2 save
+# 2. Detener y eliminar la base de datos
+cd /opt/colecheck/database
+sudo docker-compose down -v
+sudo docker rm -f colecheck-postgres 2>/dev/null
+# 3. Eliminar Nginx config
+sudo rm /etc/nginx/sites-enabled/colecheck
+sudo rm /etc/nginx/sites-available/colecheck
+sudo nginx -t && sudo systemctl reload nginx
+# 4. Eliminar archivos web
+sudo rm -rf /var/www/colecheck
+# 5. Eliminar el proyecto
+sudo rm -rf /opt/colecheck
+# 6. Verificar que todo fue eliminado
+pm2 status
+sudo docker ps -a | grep colecheck
+ls /var/www/colecheck 2>/dev/null && echo "AUN EXISTE" || echo "ELIMINADO OK"
+ls /opt/colecheck 2>/dev/null && echo "AUN EXISTE" || echo "ELIMINADO OK"
+
