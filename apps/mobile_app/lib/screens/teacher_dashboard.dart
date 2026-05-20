@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'scanner_screen.dart';
-import 'manual_attendance_screen.dart';
+import 'staff/scanner_screen.dart';
+import 'staff/manual_entry_screen.dart';
 import 'teacher_profile_screen.dart';
 
 class TeacherDashboard extends StatefulWidget {
@@ -15,7 +15,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
 
   final List<Widget> _screens = const [
     ScannerScreen(),
-    ManualAttendanceScreen(),
+    ManualEntryScreen(),
     TeacherProfileScreen(),
   ];
 
