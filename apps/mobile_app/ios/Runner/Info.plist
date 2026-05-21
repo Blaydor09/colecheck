@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Colecheck necesita acceder a la cámara para el escaneo biométrico y de códigos QR.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Colecheck necesita acceder al micrófono para la inicialización completa del módulo de cámara.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
@@ -21,14 +23,18 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
   bool isProcessing = false;
   bool isFacialMode = false;
 
-  // Variables para la simulación interactiva de reconocimiento biométrico facial
+  // Variables para la cámara real en el reconocimiento biométrico facial
+  CameraController? _facialCameraController;
+  Future<void>? _initializeCameraFuture;
+  List<CameraDescription> _availableCameras = [];
+  bool _isCameraInitialized = false;
+
   AnimationController? _laserController;
   bool isFacialScanning = false;
   double facialScanProgress = 0.0;
   String facialScanStatus = 'Listo para escanear';
   StudentData? matchedStudent;
   double matchConfidence = 0.0;
-  Timer? _simulationTimer;
 
   @override
   void initState() {
@@ -42,8 +48,8 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
   @override
   void dispose() {
     cameraController.dispose();
+    _facialCameraController?.dispose();
     _laserController?.dispose();
-    _simulationTimer?.cancel();
     super.dispose();
   }
 
@@ -52,129 +58,249 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
       isFacialMode = !isFacialMode;
       isProcessing = false;
       matchedStudent = null;
+      isFacialScanning = false;
+      facialScanProgress = 0.0;
       if (isFacialMode) {
-        _startFacialScan();
+        facialScanStatus = 'Iniciando cámara...';
+        _initializeCamera();
       } else {
-        isFacialScanning = false;
-        _simulationTimer?.cancel();
+        _disposeCamera();
       }
     });
   }
 
-  void _startFacialScan() {
-    _simulationTimer?.cancel();
-    setState(() {
-      isFacialScanning = true;
-      facialScanProgress = 0.0;
-      facialScanStatus = 'Buscando rostro...';
-      matchedStudent = null;
-      isProcessing = true; // Deshabilita el procesamiento de códigos QR
-    });
-
-    int step = 0;
-    _simulationTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
-      step++;
-      if (!mounted) {
-        timer.cancel();
+  Future<void> _initializeCamera() async {
+    try {
+      _availableCameras = await availableCameras();
+      if (_availableCameras.isEmpty) {
+        if (mounted) {
+          setState(() {
+            facialScanStatus = 'No se encontraron cámaras';
+          });
+        }
         return;
       }
 
-      if (step == 1) {
-        setState(() {
-          facialScanProgress = 0.3;
-          facialScanStatus = 'Rostro detectado. Analizando puntos biométricos...';
-        });
-      } else if (step == 2) {
-        setState(() {
-          facialScanProgress = 0.65;
-          facialScanStatus = 'Escaneando características faciales...';
-        });
-      } else if (step == 3) {
-        setState(() {
-          facialScanProgress = 0.88;
-          facialScanStatus = 'Comparando con base de datos (98.9% similitud)...';
-        });
-      } else if (step == 4) {
-        timer.cancel();
-        _processBiometricMatch();
+      // Try to find the front-facing camera
+      CameraDescription? selectedCamera;
+      for (var camera in _availableCameras) {
+        if (camera.lensDirection == CameraLensDirection.front) {
+          selectedCamera = camera;
+          break;
+        }
       }
-    });
+      
+      // Fallback to the first available camera
+      selectedCamera ??= _availableCameras.first;
+
+      _facialCameraController = CameraController(
+        selectedCamera,
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
+
+      _initializeCameraFuture = _facialCameraController!.initialize();
+      await _initializeCameraFuture;
+
+      if (mounted) {
+        setState(() {
+          _isCameraInitialized = true;
+          facialScanStatus = 'Alinea tu rostro en el óvalo y presiona Escanear';
+        });
+      }
+    } catch (e) {
+      debugPrint('Error initializing facial camera: $e');
+      if (mounted) {
+        setState(() {
+          facialScanStatus = 'Error al iniciar la cámara: $e';
+        });
+      }
+    }
   }
 
-  Future<void> _processBiometricMatch() async {
-    final appProvider = context.read<AppProvider>();
-    final students = appProvider.students;
+  void _disposeCamera() {
+    _facialCameraController?.dispose();
+    _facialCameraController = null;
+    _isCameraInitialized = false;
+  }
 
-    if (students.isEmpty) {
-      setState(() {
-        isFacialScanning = false;
-        isProcessing = false;
-        facialScanStatus = 'No hay estudiantes registrados';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se encontraron estudiantes para reconocer'),
-          backgroundColor: Colors.orange,
-        ),
+  Future<void> _toggleCameraLens() async {
+    if (_facialCameraController == null || _availableCameras.isEmpty) return;
+
+    try {
+      final currentLensDirection = _facialCameraController!.description.lensDirection;
+      CameraDescription? newCamera;
+
+      for (var camera in _availableCameras) {
+        if (currentLensDirection == CameraLensDirection.front &&
+            camera.lensDirection == CameraLensDirection.back) {
+          newCamera = camera;
+          break;
+        } else if (currentLensDirection == CameraLensDirection.back &&
+            camera.lensDirection == CameraLensDirection.front) {
+          newCamera = camera;
+          break;
+        }
+      }
+
+      newCamera ??= _availableCameras.firstWhere(
+        (camera) => camera.lensDirection != currentLensDirection,
+        orElse: () => _availableCameras.first,
       );
-      return;
-    }
 
-    // Algoritmo inteligente de emparejamiento: buscar el primer estudiante pendiente o ausente hoy
-    StudentData? targetStudent;
-    for (final s in students) {
-      if (s.todayStatus == StatusType.pending || s.todayStatus == StatusType.absent) {
-        targetStudent = s;
-        break;
+      if (newCamera != _facialCameraController!.description) {
+        setState(() {
+          _isCameraInitialized = false;
+          facialScanStatus = 'Cambiando de cámara...';
+        });
+
+        await _facialCameraController!.dispose();
+        _facialCameraController = CameraController(
+          newCamera,
+          ResolutionPreset.medium,
+          enableAudio: false,
+        );
+
+        _initializeCameraFuture = _facialCameraController!.initialize();
+        await _initializeCameraFuture;
+
+        if (mounted) {
+          setState(() {
+            _isCameraInitialized = true;
+            facialScanStatus = 'Alinea tu rostro en el óvalo y presiona Escanear';
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error toggling camera lens: $e');
+      if (mounted) {
+        setState(() {
+          facialScanStatus = 'Error al cambiar cámara: $e';
+        });
       }
     }
+  }
 
-    // Si todos están presentes, seleccionar el primero para la demostración
-    targetStudent ??= students.first;
-
-    // Generar un porcentaje realista de coincidencia
-    final double confidence = 97.4 + (DateTime.now().millisecond % 25) * 0.1;
+  Future<void> _captureAndVerifyFace() async {
+    if (_facialCameraController == null || !_isCameraInitialized || isFacialScanning) return;
 
     setState(() {
-      matchedStudent = targetStudent;
-      matchConfidence = confidence;
-      facialScanProgress = 1.0;
-      facialScanStatus = '¡Estudiante Reconocido!';
+      isFacialScanning = true;
+      facialScanProgress = 0.15;
+      facialScanStatus = 'Capturando rostro...';
+      matchedStudent = null;
     });
 
     try {
-      final success = await appProvider.recordAttendance(
-        studentId: targetStudent.id,
-        method: 'biometric',
+      // 1. Take picture
+      final XFile imageFile = await _facialCameraController!.takePicture();
+      
+      if (!mounted) return;
+      setState(() {
+        facialScanProgress = 0.45;
+        facialScanStatus = 'Procesando imagen facial...';
+      });
+
+      // 2. Read bytes and convert to Base64
+      final bytes = await imageFile.readAsBytes();
+      final base64Image = 'data:image/jpeg;base64,${base64.encode(bytes)}';
+
+      if (!mounted) return;
+      setState(() {
+        facialScanProgress = 0.75;
+        facialScanStatus = 'Analizando y verificando coincidencia...';
+      });
+
+      // 3. Connect to API via Provider
+      final appProvider = context.read<AppProvider>();
+      final result = await appProvider.recordBiometricAttendance(
+        capturedImage: base64Image,
         direction: 'entry',
       );
 
       if (!mounted) return;
 
-      if (!success) {
+      if (result != null && result['success'] == true) {
+        final studentJson = result['student'];
+        final double confidence = (result['confidence'] as num?)?.toDouble() ?? 100.0;
+
+        final matched = StudentData(
+          id: studentJson['id'] as String? ?? '',
+          name: studentJson['full_name'] as String? ?? 'Desconocido',
+          grade: studentJson['current_section'] as String? ?? 'Sin curso',
+          photoUrl: studentJson['photo_url'] as String?,
+          todayStatus: StatusType.present,
+          todayTime: 'Registrado',
+        );
+
+        setState(() {
+          matchedStudent = matched;
+          matchConfidence = confidence;
+          facialScanProgress = 1.0;
+          facialScanStatus = '¡Rostro Reconocido con éxito!';
+          isFacialScanning = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al guardar asistencia de ${targetStudent.name}'),
-            backgroundColor: AppTheme.accentColor,
+            content: Text('Asistencia registrada para ${matched.name} (${confidence.toStringAsFixed(1)}%)'),
+            backgroundColor: AppTheme.successColor,
           ),
         );
+
+        // Keep success card visible for 4.5 seconds, then reset
+        await Future.delayed(const Duration(milliseconds: 4500));
+        if (mounted) {
+          setState(() {
+            matchedStudent = null;
+            facialScanProgress = 0.0;
+            facialScanStatus = 'Alinea tu rostro en el óvalo y presiona Escanear';
+          });
+        }
+      } else {
+        throw Exception('Rostro no identificado');
       }
-    } catch (e) {
+    } on ApiException catch (e) {
       if (!mounted) return;
+      setState(() {
+        isFacialScanning = false;
+        facialScanProgress = 0.0;
+        facialScanStatus = 'Rostro no reconocido: ${e.message}';
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error en la asistencia biométrica: $e'),
+          content: Text(e.message),
+          backgroundColor: AppTheme.accentColor,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        isFacialScanning = false;
+        facialScanProgress = 0.0;
+        facialScanStatus = 'No se reconoció el rostro del estudiante';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Rostro no reconocido. Por favor, intente de nuevo.'),
           backgroundColor: AppTheme.accentColor,
         ),
       );
     }
+  }
 
-    // Mantener la tarjeta de éxito en pantalla por 3.5 segundos, luego reiniciar el escaneo facial
-    await Future.delayed(const Duration(milliseconds: 3500));
-
-    if (mounted && isFacialMode) {
-      _startFacialScan();
+  ImageProvider? _getStudentImageProvider(String? photoUrl) {
+    if (photoUrl == null || photoUrl.isEmpty) return null;
+    if (photoUrl.startsWith('data:image')) {
+      try {
+        final base64String = photoUrl.split(',').last;
+        return MemoryImage(base64.decode(base64String));
+      } catch (e) {
+        debugPrint('Error decoding base64 student photo: $e');
+        return null;
+      }
     }
+    return NetworkImage(photoUrl);
   }
 
   void _onDetect(BarcodeCapture capture) {
@@ -245,13 +371,14 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
       appBar: AppBar(
         title: const Text('Control de Acceso'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.flash_on),
-            onPressed: () => cameraController.toggleTorch(),
-          ),
+          if (!isFacialMode)
+            IconButton(
+              icon: const Icon(Icons.flash_on),
+              onPressed: () => cameraController.toggleTorch(),
+            ),
           IconButton(
             icon: const Icon(Icons.cameraswitch),
-            onPressed: () => cameraController.switchCamera(),
+            onPressed: isFacialMode ? _toggleCameraLens : () => cameraController.switchCamera(),
           ),
         ],
       ),
@@ -262,10 +389,24 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
             child: Stack(
               alignment: Alignment.center,
               children: [
-                MobileScanner(
-                  controller: cameraController,
-                  onDetect: _onDetect,
-                ),
+                if (isFacialMode)
+                  (_isCameraInitialized && _facialCameraController != null)
+                      ? Positioned.fill(
+                          child: CameraPreview(_facialCameraController!),
+                        )
+                      : Container(
+                          color: Colors.black,
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                else
+                  MobileScanner(
+                    controller: cameraController,
+                    onDetect: _onDetect,
+                  ),
                 if (isFacialMode)
                   // Contenedor del óvalo con escaneo láser animado
                   Container(
@@ -427,7 +568,7 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
                                             image: matchedStudent!.photoUrl != null &&
                                                     matchedStudent!.photoUrl!.isNotEmpty
                                                 ? DecorationImage(
-                                                    image: NetworkImage(matchedStudent!.photoUrl!),
+                                                    image: _getStudentImageProvider(matchedStudent!.photoUrl)!,
                                                     fit: BoxFit.cover,
                                                   )
                                                 : null,
@@ -540,6 +681,29 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
                       ],
                     ],
                   ),
+                  if (isFacialMode) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: (_isCameraInitialized && !isFacialScanning) ? _captureAndVerifyFace : null,
+                        icon: const Icon(Icons.camera_alt, size: 24),
+                        label: const Text(
+                          'Escanear Rostro',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 4,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   Row(
                     children: [
                       Expanded(

@@ -253,6 +253,54 @@ class AppProvider extends ChangeNotifier {
     return false;
   }
 
+  /// Record biometric attendance (1-to-many face comparison) via the API.
+  Future<Map<String, dynamic>?> recordBiometricAttendance({
+    required String capturedImage,
+    String direction = 'entry',
+    String? notes,
+  }) async {
+    try {
+      final response = await _api.post('/attendance/record-biometric', {
+        'capturedImage': capturedImage,
+        'direction': direction,
+        if (notes != null) 'notes': notes,
+      });
+
+      if (response['success'] == true) {
+        // Update local student status
+        final event = response['event'] as Map<String, dynamic>?;
+        if (event != null) {
+          final sid = event['student_id'] as String?;
+          final newStatus = _parseStatus(event['status_after']);
+          final newTime = _formatTime(event['event_time']);
+
+          if (sid != null) {
+            _students = _students.map((s) {
+              if (s.id == sid) {
+                return StudentData(
+                  id: s.id,
+                  name: s.name,
+                  grade: s.grade,
+                  photoUrl: s.photoUrl,
+                  todayStatus: newStatus,
+                  todayTime: newTime,
+                );
+              }
+              return s;
+            }).toList();
+
+            notifyListeners();
+          }
+        }
+        return response;
+      }
+    } catch (e) {
+      debugPrint('Error recording biometric attendance: $e');
+      rethrow;
+    }
+    return null;
+  }
+
   /// Clear all data (on logout).
   void clear() {
     _students = [];
