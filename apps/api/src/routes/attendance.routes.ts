@@ -184,18 +184,22 @@ router.post('/record-biometric', async (req: any, res) => {
     let bestMatch: typeof studentsWithPhoto[0] | null = null;
     let maxConfidence = 0;
 
+    console.log(`[Biometric] Iniciar comparación facial de 1-a-Muchos para ${studentsWithPhoto.length} estudiantes.`);
     for (const student of studentsWithPhoto) {
       if (!student.photo_url) continue;
       
       const similarity = await compareFaces(capturedImage, student.photo_url);
+      console.log(`[Biometric] Comparación con Estudiante: "${student.full_name}" -> Similitud: ${similarity.toFixed(2)}%`);
       if (similarity > maxConfidence) {
         maxConfidence = similarity;
         bestMatch = student;
       }
     }
 
-    // 3. Check threshold (75%)
-    const confidenceThreshold = 75.0;
+    // 3. Check threshold (60%)
+    const confidenceThreshold = 60.0;
+    console.log(`[Biometric] Mejor coincidencia: "${bestMatch?.full_name || 'Ninguno'}" con ${maxConfidence.toFixed(2)}% (Umbral mínimo: ${confidenceThreshold}%)`);
+    
     if (!bestMatch || maxConfidence < confidenceThreshold) {
       return res.status(404).json({ 
         success: false, 

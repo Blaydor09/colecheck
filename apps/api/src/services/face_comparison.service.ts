@@ -10,35 +10,30 @@ function base64ToBuffer(base64Str: string): Buffer {
 }
 
 /**
- * Generates a 256-bit perceptual hash (aHash) for an image.
- * Resizes the image to 16x16, grayscales it, and generates a binary string
- * comparing each pixel's brightness to the average brightness.
+ * Generates a 64-bit difference hash (dHash) for an image.
+ * Resizes the image to 9x8, grayscales it, and compares adjacent horizontal pixels.
+ * Highly resilient to lighting shifts, uniform color changes, and scaling.
  */
 async function getPerceptualHash(imageBuffer: Buffer): Promise<string> {
   const image = await Jimp.read(imageBuffer);
   
-  // Resize to a standardized small grid to normalize resolutions
-  image.resize({ w: 16, h: 16 });
+  // Resize to 9x8 to perform difference hashing (creates 64 comparisons/bits)
+  image.resize({ w: 9, h: 8 });
   image.greyscale();
   
-  const pixels: number[] = [];
-  let sum = 0;
-  
-  for (let y = 0; y < 16; y++) {
-    for (let x = 0; x < 16; x++) {
-      const color = image.getPixelColor(x, y);
-      // Get the red channel (since it is grayscale, R = G = B)
-      // Jimp color is represented as a 32-bit integer: RGBA
-      const r = (color >> 24) & 0xff;
-      pixels.push(r);
-      sum += r;
-    }
-  }
-  
-  const average = sum / pixels.length;
   let hash = '';
-  for (const pixel of pixels) {
-    hash += pixel >= average ? '1' : '0';
+  
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < 8; x++) {
+      const colorLeft = image.getPixelColor(x, y);
+      const colorRight = image.getPixelColor(x + 1, y);
+      
+      // Get the red channel (since it is grayscale, R = G = B)
+      const rLeft = (colorLeft >> 24) & 0xff;
+      const rRight = (colorRight >> 24) & 0xff;
+      
+      hash += rLeft > rRight ? '1' : '0';
+    }
   }
   
   return hash;
