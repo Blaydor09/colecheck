@@ -53,24 +53,53 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
     super.dispose();
   }
 
-  void _toggleFacialMode() {
-    setState(() {
-      isFacialMode = !isFacialMode;
-      isProcessing = false;
-      matchedStudent = null;
-      isFacialScanning = false;
-      facialScanProgress = 0.0;
-      if (isFacialMode) {
-        facialScanStatus = 'Iniciando cámara...';
-        _initializeCamera();
-      } else {
+  Future<void> _toggleFacialMode() async {
+    if (isFacialMode) {
+      // Exiting facial mode -> Stop facial camera, restart QR scanner
+      setState(() {
+        isFacialMode = false;
+        isProcessing = false;
+        matchedStudent = null;
+        isFacialScanning = false;
+        facialScanProgress = 0.0;
         _disposeCamera();
+      });
+      try {
+        await cameraController.start();
+      } catch (e) {
+        debugPrint('Error starting QR camera: $e');
       }
-    });
+    } else {
+      // Entering facial mode -> Stop QR scanner first, then start facial camera
+      setState(() {
+        facialScanStatus = 'Liberando recursos de cámara...';
+      });
+      try {
+        await cameraController.stop();
+        // Give native hardware resources time to release
+        await Future.delayed(const Duration(milliseconds: 800));
+      } catch (e) {
+        debugPrint('Error stopping QR camera: $e');
+      }
+      setState(() {
+        isFacialMode = true;
+        isProcessing = false;
+        matchedStudent = null;
+        isFacialScanning = false;
+        facialScanProgress = 0.0;
+        facialScanStatus = 'Iniciando cámara...';
+      });
+      await _initializeCamera();
+    }
   }
 
   Future<void> _initializeCamera() async {
     try {
+      if (_facialCameraController != null) {
+        await _facialCameraController!.dispose();
+        _facialCameraController = null;
+      }
+      _isCameraInitialized = false;
       _availableCameras = await availableCameras();
       if (_availableCameras.isEmpty) {
         if (mounted) {
@@ -391,7 +420,7 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
               children: [
                 if (isFacialMode)
                   (_isCameraInitialized && _facialCameraController != null)
-                      ? Positioned.fill(
+                      ? SizedBox.expand(
                           child: CameraPreview(_facialCameraController!),
                         )
                       : Container(
