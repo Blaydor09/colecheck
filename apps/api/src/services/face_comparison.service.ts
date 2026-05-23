@@ -1,79 +1,111 @@
-import { Jimp } from 'jimp';
+import * as faceapi from '@vladmandic/face-api/dist/face-api.node-wasm.js';
+import * as tf from '@tensorflow/tfjs';
+import * as canvas from 'canvas';
+import * as path from 'path';
+
+// Patch face-api environment for Node.js
+const { Canvas, Image, ImageData } = canvas;
+faceapi.env.monkeyPatch({ Canvas, Image, ImageData } as any);
+
+const MODEL_PATH = path.join(__dirname, '../../models');
+let modelsLoaded = false;
+let loadingPromise: Promise<void> | null = null;
+
+/**
+ * Ensures that the WebAssembly backend is initialized and face-api models are loaded.
+ */
+async function ensureModels(): Promise<void> {
+  if (modelsLoaded) return;
+  if (loadingPromise) return loadingPromise;
+
+  loadingPromise = (async () => {
+    console.log(`[Face Recognition] Initializing WASM backend...`);
+    await tf.setBackend('wasm');
+    await tf.ready();
+
+    console.log(`[Face Recognition] Loading models from: ${MODEL_PATH}`);
+    await Promise.all([
+      faceapi.nets.ssdMobilenetv1.loadFromDisk(MODEL_PATH),
+      faceapi.nets.faceLandmark68Net.loadFromDisk(MODEL_PATH),
+      faceapi.nets.faceRecognitionNet.loadFromDisk(MODEL_PATH),
+    ]);
+    
+    modelsLoaded = true;
+    console.log('[Face Recognition] Models and WASM backend loaded successfully.');
+  })();
+
+  return loadingPromise;
+}
 
 /**
  * Normalizes a base64 string and converts it to a Node Buffer.
  */
 function base64ToBuffer(base64Str: string): Buffer {
-  // Remove data URI prefix if present
-  const base64Data = base64Str.replace(/^data:image\/\w+;base64,/, '');
+  const base64Data = base64Str.trim().replace(/^data:image\/\w+;base64,/, '');
   return Buffer.from(base64Data, 'base64');
 }
 
 /**
- * Generates a 64-bit difference hash (dHash) for an image.
- * Resizes the image to 9x8, grayscales it, and compares adjacent horizontal pixels.
- * Highly resilient to lighting shifts, uniform color changes, and scaling.
+ * Detects a face and extracts its 128-dimensional descriptor (embedding).
  */
-async function getPerceptualHash(imageBuffer: Buffer): Promise<string> {
-  const image = await Jimp.read(imageBuffer);
-  
-  // Resize to 9x8 to perform difference hashing (creates 64 comparisons/bits)
-  image.resize({ w: 9, h: 8 });
-  image.greyscale();
-  
-  let hash = '';
-  
-  for (let y = 0; y < 8; y++) {
-    for (let x = 0; x < 8; x++) {
-      const colorLeft = image.getPixelColor(x, y);
-      const colorRight = image.getPixelColor(x + 1, y);
-      
-      // Get the red channel (since it is grayscale, R = G = B)
-      const rLeft = (colorLeft >> 24) & 0xff;
-      const rRight = (colorRight >> 24) & 0xff;
-      
-      hash += rLeft > rRight ? '1' : '0';
-    }
+async function getDescriptor(base64Str: string): Promise<Float32Array | null> {
+  try {
+    const buffer = base64ToBuffer(base64Str);
+    const img = await canvas.loadImage(buffer);
+    
+    const detection = await faceapi
+      .detectSingleFace(img as any)
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+
+    return detection ? detection.descriptor : null;
+  } catch (error) {
+    console.error('[Face Recognition] Error extracting descriptor:', error);
+    return null;
   }
-  
-  return hash;
 }
 
 /**
- * Calculates the Hamming Distance between two binary strings.
- */
-function calculateHammingDistance(hash1: string, hash2: string): number {
-  let distance = 0;
-  const length = Math.min(hash1.length, hash2.length);
-  for (let i = 0; i < length; i++) {
-    if (hash1[i] !== hash2[i]) {
-      distance++;
-    }
-  }
-  return distance;
-}
-
-/**
- * Compares two base64-encoded images and returns a similarity percentage (0 to 100).
+ * Compares two base64-encoded face images and returns a similarity percentage (0 to 100).
+ * Highly optimized using @vladmandic/face-api with WebAssembly backend.
  */
 export async function compareFaces(img1Base64: string, img2Base64: string): Promise<number> {
   if (!img1Base64 || !img2Base64) {
     return 0;
   }
-  
+
   try {
-    const buffer1 = base64ToBuffer(img1Base64);
-    const buffer2 = base64ToBuffer(img2Base64);
-    
-    const hash1 = await getPerceptualHash(buffer1);
-    const hash2 = await getPerceptualHash(buffer2);
-    
-    const distance = calculateHammingDistance(hash1, hash2);
-    const similarity = (1 - distance / hash1.length) * 100;
-    
-    return Math.round(similarity * 100) / 100; // Round to two decimal places
+    await ensureModels();
+
+    const [desc1, desc2] = await Promise.all([
+      getDescriptor(img1Base64),
+      getDescriptor(img2Base64)
+    ]);
+
+    if (!desc1 || !desc2) {
+      console.log('[Face Recognition] Could not detect a face or extract descriptor in one or both images.');
+      return 0;
+    }
+
+    const distance = faceapi.euclideanDistance(desc1, desc2);
+    console.log(`[Face Recognition] Calculated Euclidean Distance: ${distance.toFixed(4)}`);
+
+    // Map Euclidean distance to similarity percentage (0-100) matching a 60% confidence threshold:
+    // - distance <= 0.6: similarity = 100 - (distance / 0.6) * 40   (maps 0.0-0.6 distance to 100%-60% similarity)
+    // - distance > 0.6: similarity = Math.max(0, 60 - ((distance - 0.6) / 0.4) * 60) (maps 0.6-1.0 distance to 60%-0% similarity)
+    let similarity = 0;
+    if (distance <= 0.6) {
+      similarity = 100 - (distance / 0.6) * 40;
+    } else {
+      similarity = Math.max(0, 60 - ((distance - 0.6) / 0.4) * 60);
+    }
+
+    const roundedSimilarity = Math.round(similarity * 100) / 100;
+    console.log(`[Face Recognition] Mapped Similarity: ${roundedSimilarity}%`);
+
+    return roundedSimilarity;
   } catch (error) {
-    console.error('Error during face comparison service execution:', error);
+    console.error('[Face Recognition] Error during face comparison service execution:', error);
     return 0;
   }
 }
