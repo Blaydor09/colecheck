@@ -1,9 +1,11 @@
+//import 'package:flutter/foundation.dart' show kIsWeb;
+//import 'dart:io' show Platform;
+
 // No active imports needed since custom IP configurations are currently commented out.
 
 class ApiConfig {
   /// Base URL for the Colecheck API (production).
-  static const String baseUrl = 'https://colecheck.sisganadero.online/api/v1';
-}
+  static const String baseUrl = 'https://colecheck.sisganadero.online/api/v1';}
   /*static String get baseUrl {
     const port = '3005';
 
